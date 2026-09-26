@@ -57,6 +57,7 @@ class SendOtpResponse(BaseModel):
     email: str
     expires_in: int = 300
     dev_otp: Optional[str] = None
+    clerk_sent: Optional[bool] = False
 
 
 class VerifyOtpRequest(BaseModel):

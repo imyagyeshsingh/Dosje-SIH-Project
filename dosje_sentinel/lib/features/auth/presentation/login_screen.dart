@@ -60,11 +60,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _otpSent = true;
         _devOtp = code;
-        _otpController.text = code ?? '123456';
+        _otpController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('6-digit verification code sent to $email'),
+          content: Text('Clerk verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -765,54 +765,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: AppSpacing.xs),
 
-                      if (_devOtp != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondaryFixed.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.vpn_key_outlined,
-                                size: 14,
-                                color: AppColors.secondary,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Verification Code: $_devOtp (or 123456)',
-                                  style: AppTypography.labelSm.copyWith(
-                                    color: AppColors.secondary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _otpController.text = _devOtp!;
-                                  });
-                                },
-                                child: const Text(
-                                  'Auto-Fill',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryContainer,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ),
-                            ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.primaryContainer.withValues(alpha: 0.2),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                      ],
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.mark_email_unread_outlined,
+                              size: 18,
+                              color: AppColors.primaryContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Code Dispatched via Clerk',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.primaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Please check your inbox (and spam folder) for the 6-digit code sent by Clerk.',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
 
                       CivicButton(
                         label: 'Verify & Sign In',
