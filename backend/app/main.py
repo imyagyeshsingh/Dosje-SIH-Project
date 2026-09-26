@@ -19,11 +19,13 @@ from app.models.notification import Notification
 from app.models.project import Project
 from app.models.report import Report
 from app.models.report_evidence_reference import ReportEvidenceReference
+from app.models.user_role_whitelist import UserRoleWhitelist
 from app.models.video_session import VideoSession
 from app.routers.ai import router as ai_router
 from app.routers.alerts import router as alerts_router
 from app.routers.attendance import router as attendance_router
 from app.routers.audit_logs import router as audit_logs_router
+from app.routers.auth import router as auth_router
 from app.routers.cctv import router as cctv_router
 from app.routers.inspectors import router as inspectors_router
 from app.routers.inspections import router as inspections_router
@@ -45,6 +47,7 @@ from app.services.video_signaling import (
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DoSJE Real-Time Monitoring & Inspection System")
+app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(cctv_router)
 app.include_router(ai_router)

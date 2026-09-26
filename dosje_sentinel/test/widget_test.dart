@@ -163,9 +163,41 @@ void main() {
       expect(authState.isOfficial, isTrue);
       expect(authState.user?.role, UserRole.official);
       expect(authState.hasPermission(Permission.viewAllNgos), isTrue);
+    });
+
+    // TEST 8b: itsmerudraksha@gmail.com automatically resolves to Official
+    test('TEST 8b: itsmerudraksha@gmail.com resolves to Official and routes to /official/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'itsmerudraksha@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(authState.hasPermission(Permission.viewAllProjects), isTrue);
+      expect(authState.hasPermission(Permission.canApproveAudit), isTrue);
       expect(
         AuthGuard.resolveRedirect('/login', authState),
         '/official/dashboard',
+      );
+    });
+
+    // TEST 8c: itsmerudraksha1@gmail.com automatically resolves to PMU Inspector
+    test('TEST 8c: itsmerudraksha1@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'itsmerudraksha1@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isInspector, isTrue);
+      expect(authState.user?.role, UserRole.inspector);
+      expect(authState.hasPermission(Permission.executeInspection), isTrue);
+      expect(authState.hasPermission(Permission.submitAuditFindings), isTrue);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/inspector/dashboard',
       );
     });
 

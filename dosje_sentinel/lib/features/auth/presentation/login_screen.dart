@@ -68,6 +68,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final authState = ref.read(authStateProvider);
 
+      if (mounted) {
+        final roleLabel = authState.user?.role.displayName ?? 'Authorized User';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Access Granted: $roleLabel (${authState.user?.email})'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
       // Role-based routing based on backend authorization context
       if (authState.isNgo) {
         final target = AuthGuard.resolveNgoInitialRoute(
@@ -304,54 +315,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const Divider(height: 16),
 
-              // 6. PMU Inspector
+              // 6. PMU Inspector (Whitelisted)
               ListTile(
                 dense: true,
                 leading: const Icon(
                   Icons.policy,
-                  color: AppColors.primaryContainer,
+                  color: AppColors.secondary,
                 ),
-                title: const Text('PMU / Field Inspector'),
+                title: const Text('PMU / Field Inspector (Whitelisted)'),
                 subtitle: const Text(
-                  'inspector.saxena@dosje.gov.in → /inspector/dashboard',
+                  'itsmerudraksha1@gmail.com → /inspector/dashboard',
                 ),
                 trailing: TextButton.icon(
                   icon: const Icon(Icons.arrow_forward, size: 14),
                   label: const Text('Sign In'),
                   onPressed: () async {
                     Navigator.pop(ctx);
-                    _emailController.text = 'inspector.saxena@dosje.gov.in';
+                    _emailController.text = 'itsmerudraksha1@gmail.com';
                     await _login(null, UserRole.inspector);
                   },
                 ),
                 onTap: () {
-                  _emailController.text = 'inspector.saxena@dosje.gov.in';
+                  _emailController.text = 'itsmerudraksha1@gmail.com';
                   Navigator.pop(ctx);
                 },
               ),
 
-              // 7. Department Official
+              // 7. Department Official (Whitelisted)
               ListTile(
                 dense: true,
                 leading: const Icon(
                   Icons.admin_panel_settings,
                   color: AppColors.primaryContainer,
                 ),
-                title: const Text('Department Official (State Directorate)'),
+                title: const Text('Department Official (Whitelisted)'),
                 subtitle: const Text(
-                  'official.sharma@dosje.gov.in → /official/dashboard',
+                  'itsmerudraksha@gmail.com → /official/dashboard',
                 ),
                 trailing: TextButton.icon(
                   icon: const Icon(Icons.arrow_forward, size: 14),
                   label: const Text('Sign In'),
                   onPressed: () async {
                     Navigator.pop(ctx);
-                    _emailController.text = 'official.sharma@dosje.gov.in';
+                    _emailController.text = 'itsmerudraksha@gmail.com';
                     await _login(null, UserRole.official);
                   },
                 ),
                 onTap: () {
-                  _emailController.text = 'official.sharma@dosje.gov.in';
+                  _emailController.text = 'itsmerudraksha@gmail.com';
                   Navigator.pop(ctx);
                 },
               ),
@@ -510,6 +521,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
+
+                    // Quick Stakeholder Selector Chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        ChoiceChip(
+                          avatar: const Icon(
+                            Icons.admin_panel_settings,
+                            size: 14,
+                            color: AppColors.primaryContainer,
+                          ),
+                          label: const Text(
+                            'Official (Rudraksha)',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          selected: _emailController.text ==
+                              'itsmerudraksha@gmail.com',
+                          selectedColor:
+                              AppColors.primaryContainer.withValues(alpha: 0.15),
+                          onSelected: _isLoading
+                              ? null
+                              : (sel) {
+                                  if (sel) {
+                                    setState(() {
+                                      _emailController.text =
+                                          'itsmerudraksha@gmail.com';
+                                    });
+                                  }
+                                },
+                        ),
+                        ChoiceChip(
+                          avatar: const Icon(
+                            Icons.policy,
+                            size: 14,
+                            color: AppColors.secondary,
+                          ),
+                          label: const Text(
+                            'PMU (Rudraksha 1)',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          selected: _emailController.text ==
+                              'itsmerudraksha1@gmail.com',
+                          selectedColor:
+                              AppColors.secondary.withValues(alpha: 0.15),
+                          onSelected: _isLoading
+                              ? null
+                              : (sel) {
+                                  if (sel) {
+                                    setState(() {
+                                      _emailController.text =
+                                          'itsmerudraksha1@gmail.com';
+                                    });
+                                  }
+                                },
+                        ),
+                        ChoiceChip(
+                          avatar: const Icon(
+                            Icons.business,
+                            size: 14,
+                            color: AppColors.saffron,
+                          ),
+                          label: const Text(
+                            'NGO Rep',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          selected: _emailController.text ==
+                              'rep.officer@samarpan-ngo.org',
+                          selectedColor:
+                              AppColors.saffron.withValues(alpha: 0.15),
+                          onSelected: _isLoading
+                              ? null
+                              : (sel) {
+                                  if (sel) {
+                                    setState(() {
+                                      _emailController.text =
+                                          'rep.officer@samarpan-ngo.org';
+                                    });
+                                  }
+                                },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
 
                     // Single Email Field
                     TextField(
