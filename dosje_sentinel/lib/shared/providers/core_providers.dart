@@ -77,6 +77,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._authService, this._realtimeService)
     : super(const AuthState());
 
+  Future<String?> sendOtp(String email) async {
+    return await _authService.sendOtp(email);
+  }
+
+  Future<void> verifyOtp({
+    required String email,
+    required String otp,
+    NgoRegistrationStatus? status,
+    UserRole? roleHint,
+  }) async {
+    state = state.copyWith(status: AuthStatus.authenticating);
+    try {
+      state = state.copyWith(status: AuthStatus.resolvingAuthorization);
+      final newState = await _authService.verifyOtp(
+        email: email,
+        otp: otp,
+        status: status,
+        roleHint: roleHint,
+      );
+      state = newState;
+      if (newState.token != null) {
+        _realtimeService.connect(newState.token!);
+      }
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: e.toString(),
+      );
+      rethrow;
+    }
+  }
+
   Future<void> signInWithClerk({
     required String email,
     required String password,

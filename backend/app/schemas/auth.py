@@ -43,3 +43,32 @@ class WhitelistResponse(BaseModel):
     full_name: Optional[str] = None
     designation: Optional[str] = None
     is_active: bool
+
+
+class SendOtpRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    email: str = Field(..., description="Email address to receive OTP code")
+
+
+class SendOtpResponse(BaseModel):
+    success: bool = True
+    message: str
+    email: str
+    expires_in: int = 300
+    dev_otp: Optional[str] = None
+
+
+class VerifyOtpRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    email: str = Field(..., description="Email address being verified")
+    otp: str = Field(..., min_length=4, max_length=8, description="6-digit verification code")
+    clerk_user_id: Optional[str] = None
+
+
+class VerifyOtpResponse(BaseModel):
+    success: bool = True
+    message: str
+    token: str
+    user: ResolveRoleResponse

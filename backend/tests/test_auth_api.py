@@ -129,3 +129,38 @@ def test_whitelist_get_all(client: TestClient):
     emails = [item["email"] for item in data]
     assert "itsmerudraksha@gmail.com" in emails
     assert "itsmerudraksha1@gmail.com" in emails
+
+
+def test_send_and_verify_otp_flow(client: TestClient):
+    """Verify complete send OTP -> verify OTP flow."""
+    # 1. Send OTP to itsmerudraksha@gmail.com
+    send_res = client.post(
+        "/api/v1/auth/otp/send",
+        json={"email": "itsmerudraksha@gmail.com"},
+    )
+    assert send_res.status_code == 200
+    send_data = send_res.json()
+    assert send_data["success"] is True
+    assert "dev_otp" in send_data
+    code = send_data["dev_otp"]
+
+    # 2. Verify with correct code
+    verify_res = client.post(
+        "/api/v1/auth/otp/verify",
+        json={"email": "itsmerudraksha@gmail.com", "otp": code},
+    )
+    assert verify_res.status_code == 200
+    verify_data = verify_res.json()
+    assert verify_data["success"] is True
+    assert verify_data["user"]["role"] == "OFFICIAL"
+    assert verify_data["user"]["email"] == "itsmerudraksha@gmail.com"
+
+
+def test_verify_otp_invalid_code(client: TestClient):
+    """Verify wrong OTP code returns 400 error."""
+    response = client.post(
+        "/api/v1/auth/otp/verify",
+        json={"email": "some.user@gmail.com", "otp": "999999"},
+    )
+    assert response.status_code == 400
+

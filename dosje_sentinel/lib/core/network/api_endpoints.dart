@@ -32,6 +32,8 @@ class ApiEndpoints {
   static const String logout = '/api/v1/auth/logout';
   static const String me = '/api/v1/auth/me';
   static const String resolveRole = '/api/v1/auth/resolve-role';
+  static const String sendOtp = '/api/v1/auth/otp/send';
+  static const String verifyOtp = '/api/v1/auth/otp/verify';
   static const String authWhitelist = '/api/v1/auth/whitelist';
 
   // Clerk Configuration

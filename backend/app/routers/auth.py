@@ -9,13 +9,74 @@ from app.schemas.auth import (
     ResolveRoleResponse,
     WhitelistCreate,
     WhitelistResponse,
+    SendOtpRequest,
+    SendOtpResponse,
+    VerifyOtpRequest,
+    VerifyOtpResponse,
 )
 from app.services.clerk_auth_service import (
     ensure_seed_whitelist,
     resolve_user_role_from_db_or_seed,
+    send_email_otp,
+    verify_email_otp,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & RBAC"])
+
+
+@router.post("/otp/send", response_model=SendOtpResponse)
+def request_otp(payload: SendOtpRequest):
+    """
+    Generate and dispatch a 6-digit OTP to the specified email address.
+    """
+    if not payload.email or not payload.email.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Valid email address is required to send verification code.",
+        )
+    result = send_email_otp(payload.email)
+    return result
+
+
+@router.post("/otp/verify", response_model=VerifyOtpResponse)
+def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
+    """
+    Verify submitted 6-digit OTP code and return authenticated user profile & role.
+    """
+    import time
+
+    if not payload.email or not payload.email.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Email address is required for verification.",
+        )
+    if not payload.otp or not payload.otp.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Verification code is required.",
+        )
+
+    ensure_seed_whitelist(db)
+
+    try:
+        user_info = verify_email_otp(
+            email=payload.email,
+            otp=payload.otp,
+            db=db,
+            clerk_user_id=payload.clerk_user_id,
+        )
+        token = f"clerk_otp_session_{int(time.time() * 1000)}"
+        return VerifyOtpResponse(
+            success=True,
+            message="Email successfully verified.",
+            token=token,
+            user=user_info,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.post("/resolve-role", response_model=ResolveRoleResponse)

@@ -201,6 +201,40 @@ void main() {
       );
     });
 
+    // TEST 8d: OTP send and verify for Official itsmerudraksha@gmail.com
+    test('TEST 8d: OTP authentication for itsmerudraksha@gmail.com resolves to Official', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final otp = await authService.sendOtp('itsmerudraksha@gmail.com');
+      final authState = await authService.verifyOtp(
+        email: 'itsmerudraksha@gmail.com',
+        otp: otp ?? '123456',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/official/dashboard',
+      );
+    });
+
+    // TEST 8e: OTP send and verify for PMU itsmerudraksha1@gmail.com
+    test('TEST 8e: OTP authentication for itsmerudraksha1@gmail.com resolves to PMU Inspector', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final otp = await authService.sendOtp('itsmerudraksha1@gmail.com');
+      final authState = await authService.verifyOtp(
+        email: 'itsmerudraksha1@gmail.com',
+        otp: otp ?? '123456',
+      );
+
+      expect(authState.isInspector, isTrue);
+      expect(authState.user?.role, UserRole.inspector);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/inspector/dashboard',
+      );
+    });
+
     // TEST 9: NGO attempts /official/* -> blocked
     test('TEST 9: NGO attempts /official/* route -> blocked and redirected to NGO home', () {
       final authState = AuthState(
