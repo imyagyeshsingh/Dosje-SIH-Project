@@ -271,7 +271,7 @@ def send_email_otp(email: str) -> Dict[str, Any]:
         logger.warning(clerk_error_msg)
 
     message = (
-        f"Verification code sent to {normalized} via Clerk. Please check your inbox."
+        f"Verification code sent to {normalized}. Please check your inbox."
         if clerk_sent
         else f"Verification code generated for {normalized}."
     )
@@ -348,7 +348,7 @@ def verify_email_otp(
                 is_verified = True
 
     if not is_verified:
-        raise ValueError("Invalid or expired verification code. Please check the 6-digit code sent to your email by Clerk.")
+        raise ValueError("Invalid or expired verification code. Please check the 6-digit code sent to your email.")
 
     # Remove used sessions
     _CLERK_SESSIONS.pop(normalized, None)

@@ -166,7 +166,7 @@ class _NgoRegistrationScreenState extends ConsumerState<NgoRegistrationScreen> {
 
               // Section 1: Representative Information
               _buildSectionHeader(
-                '1. Representative Information (Clerk Verified)',
+                '1. Representative Information (Verified)',
               ),
               CivicCard(
                 child: Column(
@@ -198,7 +198,7 @@ class _NgoRegistrationScreenState extends ConsumerState<NgoRegistrationScreen> {
                     const SizedBox(height: AppSpacing.sm),
                     _buildTextField(
                       controller: _emailController,
-                      label: 'Official Email (From Clerk SSO)',
+                      label: 'Official Email (Verified)',
                       icon: Icons.mail_outline,
                       readOnly: true,
                     ),

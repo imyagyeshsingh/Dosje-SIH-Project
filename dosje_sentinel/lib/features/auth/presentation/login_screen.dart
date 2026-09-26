@@ -64,7 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Clerk verification code sent to $email. Please check your inbox.'),
+          content: Text('Official verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -515,7 +515,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     Text(
-                      'Project Monitoring & Compliance Portal',
+                      'Government Inspection & Monitoring System',
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.onSurface,
                         fontWeight: FontWeight.w500,
@@ -583,7 +583,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       _otpSent
                           ? 'Enter the 6-digit verification code sent to your registered email.'
-                          : 'Unified single sign-on for all authorized stakeholders. Authenticate via Clerk to access your portal.',
+                          : 'National single sign-on portal. Enter your authorized official email address to access your dashboard.',
                       style: AppTypography.bodySm.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -592,88 +592,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     if (!_otpSent) ...[
                       // Step 1: Email Input
-                      // Quick Stakeholder Selector Chips
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          ChoiceChip(
-                            avatar: const Icon(
-                              Icons.admin_panel_settings,
-                              size: 14,
-                              color: AppColors.primaryContainer,
-                            ),
-                            label: const Text(
-                              'Official (Rudraksha)',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                            selected: _emailController.text ==
-                                'itsmerudraksha@gmail.com',
-                            selectedColor:
-                                AppColors.primaryContainer.withValues(alpha: 0.15),
-                            onSelected: _isLoading
-                                ? null
-                                : (sel) {
-                                    setState(() {
-                                      _emailController.text = sel
-                                          ? 'itsmerudraksha@gmail.com'
-                                          : '';
-                                    });
-                                  },
-                          ),
-                          ChoiceChip(
-                            avatar: const Icon(
-                              Icons.policy,
-                              size: 14,
-                              color: AppColors.secondary,
-                            ),
-                            label: const Text(
-                              'PMU (Rudraksha 1)',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                            selected: _emailController.text ==
-                                'itsmerudraksha1@gmail.com',
-                            selectedColor:
-                                AppColors.secondary.withValues(alpha: 0.15),
-                            onSelected: _isLoading
-                                ? null
-                                : (sel) {
-                                    setState(() {
-                                      _emailController.text = sel
-                                          ? 'itsmerudraksha1@gmail.com'
-                                          : '';
-                                    });
-                                  },
-                          ),
-                          ChoiceChip(
-                            avatar: const Icon(
-                              Icons.business,
-                              size: 14,
-                              color: AppColors.saffron,
-                            ),
-                            label: const Text(
-                              'NGO Rep',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                            selected: _emailController.text ==
-                                'rep.officer@samarpan-ngo.org',
-                            selectedColor:
-                                AppColors.saffron.withValues(alpha: 0.15),
-                            onSelected: _isLoading
-                                ? null
-                                : (sel) {
-                                    setState(() {
-                                      _emailController.text = sel
-                                          ? 'rep.officer@samarpan-ngo.org'
-                                          : '';
-                                    });
-                                  },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // Single Email Field
                       TextField(
                         controller: _emailController,
                         style: AppTypography.bodyMd,
@@ -688,7 +606,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: AppSpacing.md),
 
                       CivicButton(
-                        label: 'Continue with Clerk',
+                        label: 'Get Verification Code',
                         icon: Icons.send_rounded,
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _sendOtp,
@@ -791,7 +709,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Code Dispatched via Clerk',
+                                    'Verification Code Sent',
                                     style: AppTypography.labelSm.copyWith(
                                       color: AppColors.primaryContainer,
                                       fontWeight: FontWeight.bold,
@@ -799,7 +717,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Please check your inbox (and spam folder) for the 6-digit code sent by Clerk.',
+                                    'Please check your email inbox (and spam folder) for the 6-digit verification code.',
                                     style: AppTypography.labelSm.copyWith(
                                       color: AppColors.onSurfaceVariant,
                                       fontSize: 11,
@@ -875,25 +793,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Debug Mock Auth Launcher (Strictly kDebugMode)
-              if (kDebugMode) ...[
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.bug_report_outlined, size: 16),
-                  label: const Text('Debug Mock Auth Switcher'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.saffron,
-                    side: const BorderSide(color: AppColors.saffron),
-                    minimumSize: const Size.fromHeight(40),
-                  ),
-                  onPressed: _isLoading ? null : _showDebugAuthSheet,
-                ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-
               // Footer Assurance
               Center(
                 child: Text(
-                  'Unified Identity Handshake • Powered by Clerk & NIC Standards\nAuthorized representatives, inspectors, and directorate officers.',
+                  'DoSJE National Inspection & Monitoring System • NIC Security Standards\nDepartment of Social Justice and Empowerment, Government of India',
                   style: AppTypography.bodySm.copyWith(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),

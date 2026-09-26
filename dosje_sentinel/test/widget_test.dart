@@ -28,7 +28,7 @@ void main() {
         // Verified single unified login UI
         expect(find.text('DoSJE Sentinel'), findsOneWidget);
         expect(find.text('Sign In'), findsOneWidget);
-        expect(find.text('Continue with Clerk'), findsOneWidget);
+        expect(find.text('Get Verification Code'), findsOneWidget);
         expect(
           find.textContaining('single sign-on', findRichText: true),
           findsOneWidget,

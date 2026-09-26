@@ -64,7 +64,7 @@ class _NgoSettingsScreenState extends State<NgoSettingsScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    'Authenticated via Clerk JWT SSO',
+                    'Authenticated via Secure Government SSO',
                     style: AppTypography.caption,
                   ),
                   trailing: const Icon(

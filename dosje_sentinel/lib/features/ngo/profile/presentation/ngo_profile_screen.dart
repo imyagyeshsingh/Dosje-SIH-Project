@@ -157,7 +157,7 @@ class NgoProfileScreen extends ConsumerWidget {
               ),
               icon: const Icon(Icons.logout, color: AppColors.error),
               label: Text(
-                'Sign Out from Clerk Session',
+                'Sign Out',
                 style: AppTypography.labelMd.copyWith(color: AppColors.error),
               ),
               onPressed: () async {
