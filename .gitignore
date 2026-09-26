@@ -1,0 +1,61 @@
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build Artifacts & Binaries
+*.apk
+*.aab
+*.ipa
+
+# Python & Backend
+backend/.venv*/
+backend/venv*/
+backend/env*/
+backend/.env
+backend/.pytest_cache/
+backend/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite
+*.sqlite3
+
+# Flutter & Dart
+dosje_sentinel/.dart_tool/
+dosje_sentinel/.flutter-plugins
+dosje_sentinel/.flutter-plugins-dependencies
+dosje_sentinel/.packages
+dosje_sentinel/build/
+dosje_sentinel/.pub/
+
+# Android Gradle & Caches
+dosje_sentinel/android/.gradle/
+dosje_sentinel/android/local.properties
+dosje_sentinel/android/app/build/
+dosje_sentinel/android/build/
+*.keystore
+
+# iOS / macOS Caches
+dosje_sentinel/ios/Pods/
+dosje_sentinel/ios/.symlinks/
+dosje_sentinel/ios/Flutter/Flutter.framework
+dosje_sentinel/ios/Flutter/Flutter.podspec
+dosje_sentinel/macos/Pods/
+dosje_sentinel/macos/.symlinks/
+dosje_sentinel/macos/Flutter/ephemeral
+
+# Linux / Windows Ephemeral
+dosje_sentinel/linux/flutter/ephemeral/
+dosje_sentinel/windows/flutter/ephemeral/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

@@ -1,0 +1,1 @@
+"""DoSJE backend application package."""
