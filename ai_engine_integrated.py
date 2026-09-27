@@ -34,8 +34,8 @@ SMOOTHING_WINDOW = 8
 EVENT_INTERVAL = 5
 
 # Backend identifiers
-PROJECT_ID = 151
-CAMERA_ID = 56
+PROJECT_ID = 163
+CAMERA_ID = 65
 
 
 # ============================================================
@@ -322,10 +322,16 @@ def calculate_confidence(detection_confidences):
 def create_event(
     activity,
     people_count,
-    confidence
+    confidence,
+    inactive_seconds=0,
+    active_people=0,
+    event_type=None
 ):
     """
-    Create event payload expected by backend.
+    Create a structured AI event.
+
+    Existing backend fields are preserved for compatibility.
+    Additional AI context is included for future risk/alert processing.
     """
 
     return {
@@ -334,6 +340,9 @@ def create_event(
         "people_detected": people_count,
         "activity": activity,
         "confidence": confidence,
+        "inactive_seconds": round(inactive_seconds, 2),
+        "active_people": active_people,
+        "event_type": event_type,
         "timestamp": datetime.now(
             timezone.utc
         ).isoformat()
@@ -610,7 +619,10 @@ while True:
         event = create_event(
             activity,
             people_count,
-            confidence
+            confidence,
+            inactive_seconds=longest_inactive_seconds,
+            active_people=active_people,
+            event_type=event_type
         )
 
         print("\nAI EVENT")
