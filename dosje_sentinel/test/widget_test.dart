@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dosje_sentinel/app/app.dart';
@@ -224,6 +225,51 @@ void main() {
         ),
         throwsA(isA<AppException>()),
       );
+    });
+
+    // TEST 8f: Wrong OTP on LoginScreen shows error message below OTP input box and resend option
+    testWidgets('TEST 8f: Wrong OTP displays inline error message below OTP input box with resend option', (WidgetTester tester) async {
+      await tester.pumpWidget(const ProviderScope(child: DosjeSentinelApp()));
+      await tester.pumpAndSettle();
+
+      // Enter email
+      final emailField = find.widgetWithText(TextField, 'Authorized Email Address *');
+      await tester.enterText(emailField, 'itsmerudraksha@gmail.com');
+      await tester.pump();
+
+      // Tap Get Verification Code
+      final getCodeBtn = find.text('Get Verification Code');
+      await tester.tap(getCodeBtn);
+      await tester.pumpAndSettle();
+
+      // Now OTP field is visible
+      expect(find.text('6-Digit Verification Code *'), findsOneWidget);
+
+      // Dismiss snackbar
+      await tester.pump(const Duration(seconds: 4));
+
+      // Enter wrong OTP
+      final otpField = find.widgetWithText(TextField, '6-Digit Verification Code *');
+      await tester.enterText(otpField, '000000');
+      await tester.pump();
+
+      // Tap Verify & Sign In
+      final verifyBtn = find.text('Verify & Sign In');
+      await tester.ensureVisible(verifyBtn);
+      await tester.tap(verifyBtn);
+      await tester.pumpAndSettle();
+
+      // Verify that inline error message is visible below OTP box
+      expect(
+        find.text('Entered OTP is incorrect. Please enter the correct OTP or resend OTP.'),
+        findsWidgets,
+      );
+      expect(find.text('Resend OTP Code'), findsOneWidget);
+
+      // Typing into OTP field clears error message container
+      await tester.enterText(otpField, '1');
+      await tester.pump();
+      expect(find.text('Resend OTP Code'), findsNothing);
     });
 
     // TEST 9: NGO attempts /official/* -> blocked

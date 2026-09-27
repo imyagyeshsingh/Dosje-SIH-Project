@@ -60,13 +60,11 @@ import '../shared/models/video_session_model.dart';
 import '../shared/providers/core_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authNotifier = ref.watch(authNotifierProvider);
-
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: _RiverpodRefreshListenable(ref),
     redirect: (context, state) =>
-        AuthGuard.redirect(context, state, authNotifier),
+        AuthGuard.redirect(context, state, ref.read(authNotifierProvider)),
     routes: [
       // Splash & Login
       GoRoute(
