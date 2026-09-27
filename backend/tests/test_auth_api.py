@@ -54,6 +54,20 @@ def test_resolve_role_official(client: TestClient):
     assert "scheduleInspection" in data["permissions"]
 
 
+def test_resolve_role_official_khushboo(client: TestClient):
+    """Verify rathorekhushboo567@gmail.com resolves to OFFICIAL role."""
+    response = client.post(
+        "/api/v1/auth/resolve-role",
+        json={"email": "rathorekhushboo567@gmail.com"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "rathorekhushboo567@gmail.com"
+    assert data["role"] == "OFFICIAL"
+    assert "viewAllProjects" in data["permissions"]
+    assert "canApproveAudit" in data["permissions"]
+
+
 def test_resolve_role_inspector_pmu(client: TestClient):
     """Verify itsmerudraksha1@gmail.com resolves to INSPECTOR role."""
     response = client.post(
@@ -63,6 +77,21 @@ def test_resolve_role_inspector_pmu(client: TestClient):
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "itsmerudraksha1@gmail.com"
+    assert data["role"] == "INSPECTOR"
+    assert "executeInspection" in data["permissions"]
+    assert "submitAuditFindings" in data["permissions"]
+    assert "canApproveAudit" not in data["permissions"]
+
+
+def test_resolve_role_inspector_pmu_khushboo(client: TestClient):
+    """Verify the.khushboo567@gmail.com resolves to INSPECTOR role."""
+    response = client.post(
+        "/api/v1/auth/resolve-role",
+        json={"email": "the.khushboo567@gmail.com"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "the.khushboo567@gmail.com"
     assert data["role"] == "INSPECTOR"
     assert "executeInspection" in data["permissions"]
     assert "submitAuditFindings" in data["permissions"]
@@ -129,31 +158,53 @@ def test_whitelist_get_all(client: TestClient):
     emails = [item["email"] for item in data]
     assert "itsmerudraksha@gmail.com" in emails
     assert "itsmerudraksha1@gmail.com" in emails
+    assert "rathorekhushboo567@gmail.com" in emails
+    assert "the.khushboo567@gmail.com" in emails
 
 
 def test_send_and_verify_otp_flow(client: TestClient):
     """Verify complete send OTP -> verify OTP flow."""
-    # 1. Send OTP to itsmerudraksha@gmail.com
-    send_res = client.post(
-        "/api/v1/auth/otp/send",
-        json={"email": "itsmerudraksha@gmail.com"},
-    )
-    assert send_res.status_code == 200
-    send_data = send_res.json()
-    assert send_data["success"] is True
-    assert "dev_otp" in send_data
-    code = send_data["dev_otp"]
+    from unittest.mock import MagicMock, patch
 
-    # 2. Verify with correct code
-    verify_res = client.post(
-        "/api/v1/auth/otp/verify",
-        json={"email": "itsmerudraksha@gmail.com", "otp": code},
-    )
-    assert verify_res.status_code == 200
-    verify_data = verify_res.json()
-    assert verify_data["success"] is True
-    assert verify_data["user"]["role"] == "OFFICIAL"
-    assert verify_data["user"]["email"] == "itsmerudraksha@gmail.com"
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"authorization": "mock_jwt_token"}
+    mock_resp.json.return_value = {
+        "response": {
+            "id": "sia_mock_123",
+            "status": "complete",
+            "created_session_id": "sess_mock_test",
+            "supported_first_factors": [
+                {"strategy": "email_code", "email_address_id": "idn_mock_123"}
+            ],
+        }
+    }
+
+    with patch("app.services.clerk_auth_service.httpx.Client") as mock_http_cls:
+        mock_instance = MagicMock()
+        mock_instance.__enter__.return_value = mock_instance
+        mock_instance.post.return_value = mock_resp
+        mock_http_cls.return_value = mock_instance
+
+        # 1. Send OTP to itsmerudraksha@gmail.com
+        send_res = client.post(
+            "/api/v1/auth/otp/send",
+            json={"email": "itsmerudraksha@gmail.com"},
+        )
+        assert send_res.status_code == 200
+        send_data = send_res.json()
+        assert send_data["success"] is True
+
+        # 2. Verify with code (mocked Clerk returns complete)
+        verify_res = client.post(
+            "/api/v1/auth/otp/verify",
+            json={"email": "itsmerudraksha@gmail.com", "otp": "654321"},
+        )
+        assert verify_res.status_code == 200
+        verify_data = verify_res.json()
+        assert verify_data["success"] is True
+        assert verify_data["user"]["role"] == "OFFICIAL"
+        assert verify_data["user"]["email"] == "itsmerudraksha@gmail.com"
 
 
 def test_verify_otp_invalid_code(client: TestClient):

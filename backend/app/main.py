@@ -17,6 +17,7 @@ from app.models.inspector import Inspector
 from app.models.media import Media
 from app.models.notification import Notification
 from app.models.project import Project
+from app.models.ngo import NGO
 from app.models.report import Report
 from app.models.report_evidence_reference import ReportEvidenceReference
 from app.models.user_role_whitelist import UserRoleWhitelist
@@ -29,11 +30,13 @@ from app.routers.auth import router as auth_router
 from app.routers.cctv import router as cctv_router
 from app.routers.inspectors import router as inspectors_router
 from app.routers.inspections import router as inspections_router
+from app.routers.ngos import router as ngos_router
 from app.routers.notifications import router as notifications_router
 from app.routers.projects import router as projects_router
 from app.routers.reports import router as reports_router
 from app.routers.risk import router as risk_router
 from app.routers.video_sessions import router as video_sessions_router
+from app.services.realtime import realtime_manager
 from app.services.video_signaling import (
     VALID_MESSAGE_TYPES,
     VALID_ROLES,
@@ -48,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DoSJE Real-Time Monitoring & Inspection System")
 app.include_router(auth_router)
+app.include_router(ngos_router)
 app.include_router(projects_router)
 app.include_router(cctv_router)
 app.include_router(ai_router)
@@ -60,6 +64,22 @@ app.include_router(notifications_router)
 app.include_router(reports_router)
 app.include_router(risk_router)
 app.include_router(video_sessions_router)
+
+
+@app.websocket("/ws/realtime")
+async def realtime_hub(websocket: WebSocket) -> None:
+    """Realtime WebSocket endpoint broadcasting application metadata and registration events."""
+    await realtime_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        await realtime_manager.disconnect(websocket)
+    except Exception:
+        await realtime_manager.disconnect(websocket)
+
 
 
 def get_websocket_db_session():

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dosje_sentinel/app/app.dart';
@@ -7,6 +8,7 @@ import 'package:dosje_sentinel/core/auth/role_guard.dart';
 import 'package:dosje_sentinel/core/auth/permission_guard.dart';
 import 'package:dosje_sentinel/core/auth/auth_service.dart';
 import 'package:dosje_sentinel/core/network/api_client.dart';
+import 'package:dosje_sentinel/core/error/app_exception.dart';
 import 'package:dosje_sentinel/core/realtime/realtime_service.dart';
 import 'package:dosje_sentinel/repositories/ngo_repository.dart';
 import 'package:dosje_sentinel/repositories/official_ngo_repository.dart';
@@ -183,6 +185,26 @@ void main() {
       );
     });
 
+    // TEST 8b2: rathorekhushboo567@gmail.com automatically resolves to Official
+    test('TEST 8b2: rathorekhushboo567@gmail.com resolves to Official and routes to /official/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'rathorekhushboo567@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(authState.user?.fullName, 'Khushboo Rathore');
+      expect(authState.user?.designation, 'Directorate Official, DoSJE');
+      expect(authState.hasPermission(Permission.viewAllProjects), isTrue);
+      expect(authState.hasPermission(Permission.canApproveAudit), isTrue);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/official/dashboard',
+      );
+    });
+
     // TEST 8c: itsmerudraksha1@gmail.com automatically resolves to PMU Inspector
     test('TEST 8c: itsmerudraksha1@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
       final authService = DefaultAuthService(apiClient: ApiClient());
@@ -201,38 +223,93 @@ void main() {
       );
     });
 
-    // TEST 8d: OTP send and verify for Official itsmerudraksha@gmail.com
-    test('TEST 8d: OTP authentication for itsmerudraksha@gmail.com resolves to Official', () async {
+    // TEST 8c2: the.khushboo567@gmail.com automatically resolves to PMU Inspector
+    test('TEST 8c2: the.khushboo567@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
       final authService = DefaultAuthService(apiClient: ApiClient());
-      final otp = await authService.sendOtp('itsmerudraksha@gmail.com');
-      final authState = await authService.verifyOtp(
-        email: 'itsmerudraksha@gmail.com',
-        otp: otp ?? '123456',
-      );
-
-      expect(authState.isOfficial, isTrue);
-      expect(authState.user?.role, UserRole.official);
-      expect(
-        AuthGuard.resolveRedirect('/login', authState),
-        '/official/dashboard',
-      );
-    });
-
-    // TEST 8e: OTP send and verify for PMU itsmerudraksha1@gmail.com
-    test('TEST 8e: OTP authentication for itsmerudraksha1@gmail.com resolves to PMU Inspector', () async {
-      final authService = DefaultAuthService(apiClient: ApiClient());
-      final otp = await authService.sendOtp('itsmerudraksha1@gmail.com');
-      final authState = await authService.verifyOtp(
-        email: 'itsmerudraksha1@gmail.com',
-        otp: otp ?? '123456',
+      final authState = await authService.signInWithClerk(
+        email: 'the.khushboo567@gmail.com',
+        password: 'password123',
       );
 
       expect(authState.isInspector, isTrue);
       expect(authState.user?.role, UserRole.inspector);
+      expect(authState.user?.fullName, 'Khushboo Rathore');
+      expect(authState.user?.designation, 'Lead Inspection Officer, PMU');
+      expect(authState.hasPermission(Permission.executeInspection), isTrue);
+      expect(authState.hasPermission(Permission.submitAuditFindings), isTrue);
       expect(
         AuthGuard.resolveRedirect('/login', authState),
         '/inspector/dashboard',
       );
+    });
+
+    // TEST 8d: Wrong OTP is rejected with AppException
+    test('TEST 8d: Wrong OTP for Official is strictly rejected', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      expect(
+        () => authService.verifyOtp(
+          email: 'itsmerudraksha@gmail.com',
+          otp: '000000',
+        ),
+        throwsA(isA<AppException>()),
+      );
+    });
+
+    // TEST 8e: Wrong OTP for PMU is rejected with AppException
+    test('TEST 8e: Wrong OTP for PMU is strictly rejected', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      expect(
+        () => authService.verifyOtp(
+          email: 'itsmerudraksha1@gmail.com',
+          otp: '999999',
+        ),
+        throwsA(isA<AppException>()),
+      );
+    });
+
+    // TEST 8f: Wrong OTP on LoginScreen shows error message below OTP input box and resend option
+    testWidgets('TEST 8f: Wrong OTP displays inline error message below OTP input box with resend option', (WidgetTester tester) async {
+      await tester.pumpWidget(const ProviderScope(child: DosjeSentinelApp()));
+      await tester.pumpAndSettle();
+
+      // Enter email
+      final emailField = find.widgetWithText(TextField, 'Authorized Email Address *');
+      await tester.enterText(emailField, 'itsmerudraksha@gmail.com');
+      await tester.pump();
+
+      // Tap Get Verification Code
+      final getCodeBtn = find.text('Get Verification Code');
+      await tester.tap(getCodeBtn);
+      await tester.pumpAndSettle();
+
+      // Now OTP field is visible
+      expect(find.text('6-Digit Verification Code *'), findsOneWidget);
+
+      // Dismiss snackbar
+      await tester.pump(const Duration(seconds: 4));
+
+      // Enter wrong OTP
+      final otpField = find.widgetWithText(TextField, '6-Digit Verification Code *');
+      await tester.enterText(otpField, '000000');
+      await tester.pump();
+
+      // Tap Verify & Sign In
+      final verifyBtn = find.text('Verify & Sign In');
+      await tester.ensureVisible(verifyBtn);
+      await tester.tap(verifyBtn);
+      await tester.pumpAndSettle();
+
+      // Verify that inline error message is visible below OTP box
+      expect(
+        find.text('Entered OTP is incorrect. Please enter the correct OTP or resend OTP.'),
+        findsWidgets,
+      );
+      expect(find.text('Resend OTP Code'), findsOneWidget);
+
+      // Typing into OTP field clears error message container
+      await tester.enterText(otpField, '1');
+      await tester.pump();
+      expect(find.text('Resend OTP Code'), findsNothing);
     });
 
     // TEST 9: NGO attempts /official/* -> blocked
@@ -505,6 +582,41 @@ void main() {
         updatedNgos.firstWhere((n) => n.id == 'ngo_realtime_999').status,
         NgoRegistrationStatus.submitted,
       );
+
+      // Verify Official can mark as Under Review
+      await officialRepo.markUnderReview('ngo_realtime_999', 'Documents under verification');
+      final underReviewNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(underReviewNgo?.status, NgoRegistrationStatus.underReview);
+
+      // Verify Official can mark as Correction Needed
+      await officialRepo.requestCorrection('ngo_realtime_999', 'Please upload balance sheet');
+      final correctionNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(correctionNgo?.status, NgoRegistrationStatus.correctionRequired);
+      expect(correctionNgo?.correctionNotes, 'Please upload balance sheet');
+
+      // Verify Official can mark as Approved
+      await officialRepo.approveRegistration('ngo_realtime_999');
+      final approvedNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(approvedNgo?.status, NgoRegistrationStatus.approved);
+    });
+
+    test('Router root location / resolves correctly without throwing GoException', () {
+      final authState = AuthState(
+        status: AuthStatus.authenticatedWithContext,
+        user: UserModel(
+          id: 'off_1',
+          clerkUserId: 'user_clerk_off',
+          email: 'official@dosje.gov.in',
+          fullName: 'Official User',
+          role: UserRole.official,
+        ),
+      );
+      final resolved = AuthGuard.resolveRedirect('/', authState);
+      expect(resolved, '/official/dashboard');
+
+      const unauthState = AuthState(status: AuthStatus.unauthenticated);
+      final unauthResolved = AuthGuard.resolveRedirect('/', unauthState);
+      expect(unauthResolved, '/login');
     });
   });
 }

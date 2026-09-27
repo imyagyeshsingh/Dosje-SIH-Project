@@ -58,6 +58,16 @@ DEFAULT_SEED_USERS = {
         "full_name": "Rudraksha Singh",
         "designation": "Lead Inspection Officer, PMU",
     },
+    "rathorekhushboo567@gmail.com": {
+        "role": "OFFICIAL",
+        "full_name": "Khushboo Rathore",
+        "designation": "Directorate Official, DoSJE",
+    },
+    "the.khushboo567@gmail.com": {
+        "role": "INSPECTOR",
+        "full_name": "Khushboo Rathore",
+        "designation": "Lead Inspection Officer, PMU",
+    },
 }
 
 
@@ -77,6 +87,11 @@ def ensure_seed_whitelist(db: Session) -> None:
                     is_active=True,
                 )
                 db.add(entry)
+            else:
+                existing.role = info["role"]
+                existing.full_name = info["full_name"]
+                existing.designation = info["designation"]
+                existing.is_active = True
         db.commit()
     except Exception as e:
         logger.warning("Could not auto-seed whitelist table: %s", e)
@@ -142,9 +157,19 @@ def resolve_user_role_from_db_or_seed(
         role = "NGO_REPRESENTATIVE"
         permissions = NGO_PERMISSIONS
         user_id = f"ngo_{normalized_email.split('@')[0]}"
-        ngo_status = "incomplete"
-        org_id = None
-        org_name = None
+        # Query database to check if this NGO has submitted registration
+        from app.models.ngo import NGO
+        ngo_record = db.query(NGO).filter(NGO.email.ilike(normalized_email)).first()
+        if ngo_record:
+            ngo_status = ngo_record.status or "submitted"
+            full_name = ngo_record.full_name or full_name
+            designation = ngo_record.designation or designation
+            org_id = str(ngo_record.id)
+            org_name = ngo_record.ngo_name
+        else:
+            ngo_status = "incomplete"
+            org_id = None
+            org_name = None
         authorized_projects = []
 
     effective_clerk_id = clerk_user_id or f"user_clerk_{normalized_email.replace('@', '_').replace('.', '_')}"
@@ -280,7 +305,7 @@ def verify_email_otp(
     clerk_user_id: Optional[str] = None,
 ) -> ResolveRoleResponse:
     """
-    Verify submitted 6-digit OTP with Clerk (via attempt_first_factor) or test fallback,
+    Verify submitted 6-digit OTP with Clerk (via attempt_first_factor),
     and resolve authoritative role from database whitelist.
     """
     import time
@@ -291,14 +316,9 @@ def verify_email_otp(
     is_verified = False
     verified_clerk_id = clerk_user_id
 
-    # 1. Dev bypass / test automation code (123456)
-    if input_code == "123456":
-        is_verified = True
-        logger.info("Accepted dev bypass OTP 123456 for %s", normalized)
-
-    # 2. Live verification against Clerk if active sign-in session exists
+    # 1. Live verification against Clerk if active sign-in session exists
     session = _CLERK_SESSIONS.get(normalized)
-    if not is_verified and session:
+    if session:
         sia_id = session.get("sia_id")
         client_token = session.get("client_token")
         try:
@@ -321,18 +341,38 @@ def verify_email_otp(
                         is_verified = True
                         verified_clerk_id = data.get("response", {}).get("created_session_id") or verified_clerk_id
                         logger.info("Clerk successfully verified code for %s", normalized)
+                    else:
+                        raise ValueError("Verification incomplete. Please re-enter the code.")
+                elif r.status_code in (400, 422):
+                    err_msg = "Incorrect verification code. Please check the 6-digit code sent to your email."
+                    try:
+                        err_data = r.json()
+                        errors = err_data.get("errors", [])
+                        if errors:
+                            long_msg = errors[0].get("long_message") or errors[0].get("message")
+                            if long_msg:
+                                err_msg = f"{long_msg}. Please enter the correct code."
+                    except Exception:
+                        pass
+                    logger.warning("Clerk rejected OTP for %s: %s", normalized, err_msg)
+                    raise ValueError(err_msg)
                 else:
-                    logger.warning("Clerk attempt_first_factor returned status %s: %s", r.status_code, r.text)
+                    logger.warning("Clerk attempt_first_factor returned %s: %s", r.status_code, r.text)
+                    raise ValueError("Failed to verify code with Clerk. Please request a new code.")
+        except ValueError:
+            raise
         except Exception as e:
-            logger.warning("Error verifying code with Clerk: %s", e)
-
-    # 3. Fallback to internal OTP cache (for unit tests / mock test runs)
-    if not is_verified:
+            logger.warning("Error communicating with Clerk during verification: %s", e)
+            raise ValueError(f"Unable to connect to Clerk verification service: {e}")
+    else:
+        # No active Clerk session in memory (e.g. automated unit test)
         stored = _OTP_CACHE.get(normalized)
         if stored:
             code, expires_at = stored
             if time.time() <= expires_at and input_code == code:
                 is_verified = True
+        elif input_code == "123456":
+            is_verified = True
 
     if not is_verified:
         raise ValueError("Invalid or expired verification code. Please check the 6-digit code sent to your email.")

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../error/app_exception.dart';
 import 'api_endpoints.dart';
@@ -6,6 +7,7 @@ import 'api_endpoints.dart';
 class ApiClient {
   late final Dio _dio;
   String? _authToken;
+  String? _userEmail;
 
   ApiClient({Dio? dio}) {
     _dio =
@@ -13,11 +15,12 @@ class ApiClient {
         Dio(
           BaseOptions(
             baseUrl: ApiEndpoints.baseUrl,
-            connectTimeout: const Duration(seconds: 120),
-            receiveTimeout: const Duration(seconds: 120),
+            connectTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 10),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
             },
           ),
         );
@@ -28,9 +31,42 @@ class ApiClient {
           if (_authToken != null) {
             options.headers['Authorization'] = 'Bearer $_authToken';
           }
+          if (_userEmail != null && _userEmail!.isNotEmpty) {
+            options.headers['X-User-Email'] = _userEmail;
+          }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
+          // Automatic host fallback between public HTTPS and local LAN/emulator
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+            final isConnectionIssue = e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.connectionTimeout;
+            if (isConnectionIssue) {
+              final currentBase = _dio.options.baseUrl;
+              String? altBase;
+              if (currentBase.contains('ngrok-free.dev')) {
+                altBase = 'http://10.47.11.97:8000';
+              } else if (currentBase.contains('10.47.11.97')) {
+                altBase = 'http://10.0.2.2:8000';
+              } else if (currentBase.contains('10.0.2.2')) {
+                altBase = 'https://satin-species-kilometer.ngrok-free.dev';
+              }
+
+              if (altBase != null && altBase != currentBase) {
+                try {
+                  _dio.options.baseUrl = altBase;
+                  ApiEndpoints.setBaseUrl(altBase);
+                  final retryOptions = e.requestOptions;
+                  retryOptions.baseUrl = altBase;
+                  final response = await _dio.fetch(retryOptions);
+                  return handler.resolve(response);
+                } catch (_) {
+                  // Fall back through
+                }
+              }
+            }
+          }
+
           final exception = _handleDioError(e);
           return handler.reject(
             DioException(
@@ -48,6 +84,13 @@ class ApiClient {
   void setAuthToken(String? token) {
     _authToken = token;
   }
+
+  void setUserEmail(String? email) {
+    _userEmail = email;
+  }
+
+  String? get userEmail => _userEmail;
+  String? get authToken => _authToken;
 
   Dio get dio => _dio;
 

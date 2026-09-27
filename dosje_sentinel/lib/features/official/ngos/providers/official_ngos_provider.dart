@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/ngo_profile_model.dart';
+import '../../../../shared/models/ngo_registration_status.dart';
 import '../../../../shared/providers/core_providers.dart';
 import '../../../../core/realtime/realtime_service.dart';
 
@@ -25,6 +26,17 @@ class AllNgosNotifier extends StateNotifier<AsyncValue<List<NgoProfileModel>>> {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  Future<void> updateNgoStatus(
+    String ngoId,
+    NgoRegistrationStatus newStatus, {
+    String? notes,
+  }) async {
+    final repo = ref.read(officialNgoRepositoryProvider);
+    await repo.updateStatus(ngoId, newStatus, notes: notes);
+    ref.invalidate(ngoDetailProvider(ngoId));
+    await loadNgos();
   }
 
   void _listenToRealtimeEvents() {

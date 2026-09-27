@@ -7,6 +7,7 @@ import '../../../app/theme/colors.dart';
 import '../../../app/theme/typography.dart';
 import '../../../app/theme/spacing.dart';
 import '../../../core/auth/auth_guard.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../shared/models/ngo_registration_status.dart';
 import '../../../shared/models/user_role.dart';
 import '../../../shared/providers/core_providers.dart';
@@ -29,6 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _otpSent = false;
   String? _devOtp;
   String? _statusMessage;
+  String? _otpErrorMessage;
 
   @override
   void dispose() {
@@ -60,6 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _otpSent = true;
         _devOtp = code;
+        _otpErrorMessage = null;
         _otpController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,6 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() {
       _isLoading = true;
+      _otpErrorMessage = null;
       _statusMessage = 'Verifying code & resolving role authorization...';
     });
 
@@ -143,9 +147,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _otpErrorMessage =
+              'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verification failed: $e'),
+          const SnackBar(
+            content: Text(
+              'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -392,19 +402,107 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: AppTypography.headlineSm.copyWith(
                           letterSpacing: 4,
                           fontWeight: FontWeight.bold,
+                          color: _otpErrorMessage != null ? AppColors.error : null,
                         ),
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
                         maxLength: 6,
                         enabled: !_isLoading,
-                        decoration: const InputDecoration(
+                        onChanged: (val) {
+                          if (_otpErrorMessage != null) {
+                            setState(() => _otpErrorMessage = null);
+                          }
+                        },
+                        decoration: InputDecoration(
                           labelText: '6-Digit Verification Code *',
                           hintText: '• • • • • •',
                           counterText: '',
-                          prefixIcon: Icon(Icons.pin_outlined, size: 18),
+                          prefixIcon: const Icon(Icons.pin_outlined, size: 18),
+                          focusedBorder: _otpErrorMessage != null
+                              ? const OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: AppColors.error,
+                                    width: 2,
+                                  ),
+                                )
+                              : null,
+                          enabledBorder: _otpErrorMessage != null
+                              ? const OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: AppColors.error,
+                                    width: 1.5,
+                                  ),
+                                )
+                              : null,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
+                      const SizedBox(height: 6),
+
+                      // In-place Error Message below OTP input area
+                      if (_otpErrorMessage != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.errorBg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.errorBorder),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                color: AppColors.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _otpErrorMessage!,
+                                      style: AppTypography.labelSm.copyWith(
+                                        color: AppColors.error,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    InkWell(
+                                      onTap: _isLoading ? null : _sendOtp,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.refresh_rounded,
+                                            size: 14,
+                                            color: AppColors.error,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Resend OTP Code',
+                                            style: AppTypography.labelSm.copyWith(
+                                              color: AppColors.error,
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                      ],
 
                       Container(
                         padding: const EdgeInsets.symmetric(
