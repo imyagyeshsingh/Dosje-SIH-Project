@@ -9,7 +9,7 @@ class ApiEndpoints {
 
     // For Android physical phone and emulators connecting to host backend:
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.47.11.97:8000';
+      return 'http://10.133.165.136:8000';
     }
 
     if (kReleaseMode) {
@@ -27,10 +27,20 @@ class ApiEndpoints {
     _customBaseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
-  // Auth & Identity Handshake (Client / SSO Simulation)
+  // Auth & Identity Handshake
   static const String login = '/api/v1/auth/login';
   static const String logout = '/api/v1/auth/logout';
   static const String me = '/api/v1/auth/me';
+  static const String resolveRole = '/api/v1/auth/resolve-role';
+  static const String sendOtp = '/api/v1/auth/otp/send';
+  static const String verifyOtp = '/api/v1/auth/otp/verify';
+  static const String authWhitelist = '/api/v1/auth/whitelist';
+
+  // Clerk Configuration
+  static const String clerkPublishableKey =
+      String.fromEnvironment('CLERK_PUBLISHABLE_KEY', defaultValue: 'pk_test_Z3VpZGluZy1zYXdmaXNoLTQ4NTAuY2xlcmsuYWNjb3VudHMuZGV2JA');
+  static const String clerkFrontendApi =
+      String.fromEnvironment('CLERK_FRONTEND_API', defaultValue: 'https://guiding-sawfish-4850.clerk.accounts.dev');
 
   // Legacy/Frontend Aliases for backwards compatibility
   static const String ngoMe = '/api/v1/ngo/me';

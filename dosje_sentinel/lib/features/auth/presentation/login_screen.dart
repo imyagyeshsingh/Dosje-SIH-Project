@@ -21,52 +21,114 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // Single unified credentials controller
-  final _emailController = TextEditingController(
-    text: 'rep.officer@samarpan-ngo.org',
-  );
-  final _passwordController = TextEditingController(
-    text: 'SentinelSecure2024!',
-  );
+  // Empty credentials controllers - user enters their own email
+  final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
 
-  bool _rememberMe = true;
-  bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _otpSent = false;
+  String? _devOtp;
   String? _statusMessage;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _login([
-    NgoRegistrationStatus? forcedStatus,
-    UserRole? forcedRole,
-  ]) async {
+  Future<void> _sendOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Connecting to Clerk identity service...';
+      _statusMessage = 'Dispatching verification code to $email...';
     });
 
     try {
-      await ref
-          .read(authStateProvider.notifier)
-          .signInWithClerk(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
+      final code = await ref.read(authStateProvider.notifier).sendOtp(email);
+      if (!mounted) return;
+      setState(() {
+        _otpSent = true;
+        _devOtp = code;
+        _otpController.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Official verification code sent to $email. Please check your inbox.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to dispatch verification code: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _verifyOtp([
+    NgoRegistrationStatus? forcedStatus,
+    UserRole? forcedRole,
+  ]) async {
+    final email = _emailController.text.trim();
+    final otp = _otpController.text.trim();
+
+    if (otp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the 6-digit verification code'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Verifying code & resolving role authorization...';
+    });
+
+    try {
+      await ref.read(authStateProvider.notifier).verifyOtp(
+            email: email,
+            otp: otp,
             status: forcedStatus,
             roleHint: forcedRole,
           );
 
       if (!mounted) return;
 
-      setState(() {
-        _statusMessage = 'Resolving application authorization & role...';
-      });
-
       final authState = ref.read(authStateProvider);
+      final roleLabel = authState.user?.role.displayName ?? 'Authorized User';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Access Granted: $roleLabel (${authState.user?.email})'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
 
       // Role-based routing based on backend authorization context
       if (authState.isNgo) {
@@ -81,8 +143,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Authentication failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -94,273 +160,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _showDebugAuthSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surfaceLowest,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Debug Mock Authentication',
-                    style: AppTypography.titleMd.copyWith(
-                      color: AppColors.primaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Chip(
-                    label: Text(
-                      'kDebugMode Only',
-                      style: TextStyle(fontSize: 10),
-                    ),
-                    backgroundColor: AppColors.secondaryFixed,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Development testing tool. Tap a persona to populate credentials, or tap "Sign In" to immediately authenticate through Clerk and route to the authorized destination.',
-                style: AppTypography.bodySm,
-              ),
-              const Divider(height: 20),
 
-              // 1. NGO Approved
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.verified, color: AppColors.success),
-                title: const Text('NGO Representative (Approved)'),
-                subtitle: const Text(
-                  'rep.officer@samarpan-ngo.org → /ngo/home',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'rep.officer@samarpan-ngo.org';
-                    await _login(
-                      NgoRegistrationStatus.approved,
-                      UserRole.ngoRepresentative,
-                    );
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'rep.officer@samarpan-ngo.org';
-                  ref
-                      .read(authStateProvider.notifier)
-                      .updateNgoRegistrationStatus(
-                        NgoRegistrationStatus.approved,
-                      );
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              // 2. NGO Incomplete / New
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.app_registration,
-                  color: AppColors.saffron,
-                ),
-                title: const Text('NGO Representative (New / Incomplete)'),
-                subtitle: const Text(
-                  'new.rep@gramin-vikas.org → /ngo/onboarding/register',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'new.rep@gramin-vikas.org';
-                    await _login(
-                      NgoRegistrationStatus.incomplete,
-                      UserRole.ngoRepresentative,
-                    );
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'new.rep@gramin-vikas.org';
-                  ref
-                      .read(authStateProvider.notifier)
-                      .updateNgoRegistrationStatus(
-                        NgoRegistrationStatus.incomplete,
-                      );
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              // 3. NGO Submitted
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.mark_email_read_outlined,
-                  color: AppColors.primaryContainer,
-                ),
-                title: const Text('NGO Representative (Submitted)'),
-                subtitle: const Text(
-                  'submitted.rep@sewa-trust.org → /ngo/onboarding/submitted',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'submitted.rep@sewa-trust.org';
-                    await _login(
-                      NgoRegistrationStatus.submitted,
-                      UserRole.ngoRepresentative,
-                    );
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'submitted.rep@sewa-trust.org';
-                  ref
-                      .read(authStateProvider.notifier)
-                      .updateNgoRegistrationStatus(
-                        NgoRegistrationStatus.submitted,
-                      );
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              // 4. NGO Under Review
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.hourglass_top_outlined,
-                  color: AppColors.secondary,
-                ),
-                title: const Text('NGO Representative (Under Review)'),
-                subtitle: const Text(
-                  'review.rep@pratham-shiksha.org → /ngo/onboarding/under-review',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'review.rep@pratham-shiksha.org';
-                    await _login(
-                      NgoRegistrationStatus.underReview,
-                      UserRole.ngoRepresentative,
-                    );
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'review.rep@pratham-shiksha.org';
-                  ref
-                      .read(authStateProvider.notifier)
-                      .updateNgoRegistrationStatus(
-                        NgoRegistrationStatus.underReview,
-                      );
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              // 5. NGO Correction Required
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppColors.error,
-                ),
-                title: const Text('NGO Representative (Correction Required)'),
-                subtitle: const Text(
-                  'correction.rep@gramin-vikas.org → /ngo/onboarding/correction',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'correction.rep@gramin-vikas.org';
-                    await _login(
-                      NgoRegistrationStatus.correctionRequired,
-                      UserRole.ngoRepresentative,
-                    );
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'correction.rep@gramin-vikas.org';
-                  ref
-                      .read(authStateProvider.notifier)
-                      .updateNgoRegistrationStatus(
-                        NgoRegistrationStatus.correctionRequired,
-                      );
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              const Divider(height: 16),
-
-              // 6. PMU Inspector
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.policy,
-                  color: AppColors.primaryContainer,
-                ),
-                title: const Text('PMU / Field Inspector'),
-                subtitle: const Text(
-                  'inspector.saxena@dosje.gov.in → /inspector/dashboard',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'inspector.saxena@dosje.gov.in';
-                    await _login(null, UserRole.inspector);
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'inspector.saxena@dosje.gov.in';
-                  Navigator.pop(ctx);
-                },
-              ),
-
-              // 7. Department Official
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.admin_panel_settings,
-                  color: AppColors.primaryContainer,
-                ),
-                title: const Text('Department Official (State Directorate)'),
-                subtitle: const Text(
-                  'official.sharma@dosje.gov.in → /official/dashboard',
-                ),
-                trailing: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 14),
-                  label: const Text('Sign In'),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    _emailController.text = 'official.sharma@dosje.gov.in';
-                    await _login(null, UserRole.official);
-                  },
-                ),
-                onTap: () {
-                  _emailController.text = 'official.sharma@dosje.gov.in';
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +238,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     Text(
-                      'Project Monitoring & Compliance Portal',
+                      'Government Inspection & Monitoring System',
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.onSurface,
                         fontWeight: FontWeight.w500,
@@ -504,78 +304,182 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Unified single sign-on for all authorized stakeholders. Authenticate via Clerk to access your portal.',
+                      _otpSent
+                          ? 'Enter the 6-digit verification code sent to your registered email.'
+                          : 'National single sign-on portal. Enter your authorized official email address to access your dashboard.',
                       style: AppTypography.bodySm.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
 
-                    // Single Email Field
-                    TextField(
-                      controller: _emailController,
-                      style: AppTypography.bodyMd,
-                      keyboardType: TextInputType.emailAddress,
-                      enabled: !_isLoading,
-                      decoration: const InputDecoration(
-                        labelText: 'Authorized Email / User Identifier *',
-                        prefixIcon: Icon(Icons.mail_outline, size: 18),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-
-                    // Single Password Field
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: AppTypography.bodyMd,
-                      enabled: !_isLoading,
-                      decoration: InputDecoration(
-                        labelText: 'Security Password *',
-                        prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            size: 18,
-                          ),
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
+                    if (!_otpSent) ...[
+                      // Step 1: Email Input
+                      TextField(
+                        controller: _emailController,
+                        style: AppTypography.bodyMd,
+                        keyboardType: TextInputType.emailAddress,
+                        enabled: !_isLoading,
+                        decoration: const InputDecoration(
+                          labelText: 'Authorized Email Address *',
+                          hintText: 'e.g. itsmerudraksha@gmail.com',
+                          prefixIcon: Icon(Icons.mail_outline, size: 18),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
+                      const SizedBox(height: AppSpacing.md),
 
-                    // Remember Me & Forgot Password
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                      CivicButton(
+                        label: 'Get Verification Code',
+                        icon: Icons.send_rounded,
+                        isLoading: _isLoading,
+                        onPressed: _isLoading ? null : _sendOtp,
+                      ),
+                    ] else ...[
+                      // Step 2: OTP Verification
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.outlineVariant),
+                        ),
+                        child: Row(
                           children: [
-                            Checkbox(
-                              value: _rememberMe,
-                              activeColor: AppColors.primaryContainer,
-                              onChanged: _isLoading
-                                  ? null
-                                  : (v) =>
-                                        setState(() => _rememberMe = v ?? true),
+                            const Icon(
+                              Icons.mark_email_read_outlined,
+                              color: AppColors.success,
+                              size: 20,
                             ),
-                            Text('Remember me', style: AppTypography.bodySm),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Code dispatched to:',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    _emailController.text,
+                                    style: AppTypography.bodySm.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryContainer,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => setState(() => _otpSent = false),
+                              child: const Text('Change', style: TextStyle(fontSize: 12)),
+                            ),
                           ],
                         ),
-                        TextButton(
-                          onPressed: _isLoading ? null : () {},
-                          child: Text(
-                            'Forgot password?',
-                            style: AppTypography.labelSm.copyWith(
-                              color: AppColors.secondary,
-                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 6-Digit OTP Field
+                      TextField(
+                        controller: _otpController,
+                        style: AppTypography.headlineSm.copyWith(
+                          letterSpacing: 4,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: 6,
+                        enabled: !_isLoading,
+                        decoration: const InputDecoration(
+                          labelText: '6-Digit Verification Code *',
+                          hintText: '• • • • • •',
+                          counterText: '',
+                          prefixIcon: Icon(Icons.pin_outlined, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.primaryContainer.withValues(alpha: 0.2),
                           ),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.mark_email_unread_outlined,
+                              size: 18,
+                              color: AppColors.primaryContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Verification Code Sent',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.primaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Please check your email inbox (and spam folder) for the 6-digit verification code.',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      CivicButton(
+                        label: 'Verify & Sign In',
+                        icon: Icons.verified_user_rounded,
+                        isLoading: _isLoading,
+                        onPressed: _isLoading ? null : () => _verifyOtp(),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton.icon(
+                            icon: const Icon(Icons.arrow_back, size: 14),
+                            label: const Text('Change Email', style: TextStyle(fontSize: 12)),
+                            onPressed: _isLoading
+                                ? null
+                                : () => setState(() => _otpSent = false),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.refresh, size: 14),
+                            label: const Text('Resend Code', style: TextStyle(fontSize: 12)),
+                            onPressed: _isLoading ? null : _sendOtp,
+                          ),
+                        ],
+                      ),
+                    ],
 
                     if (_statusMessage != null) ...[
                       const SizedBox(height: AppSpacing.xs),
@@ -607,40 +511,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ],
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Single Clerk Authentication Action Button
-                    CivicButton(
-                      label: 'Continue with Clerk',
-                      icon: Icons.lock_open_rounded,
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : () => _login(),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Debug Mock Auth Launcher (Strictly kDebugMode)
-              if (kDebugMode) ...[
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.bug_report_outlined, size: 16),
-                  label: const Text('Debug Mock Auth Switcher'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.saffron,
-                    side: const BorderSide(color: AppColors.saffron),
-                    minimumSize: const Size.fromHeight(40),
-                  ),
-                  onPressed: _isLoading ? null : _showDebugAuthSheet,
-                ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-
               // Footer Assurance
               Center(
                 child: Text(
-                  'Unified Identity Handshake • Powered by Clerk & NIC Standards\nAuthorized representatives, inspectors, and directorate officers.',
+                  'DoSJE National Inspection & Monitoring System • NIC Security Standards\nDepartment of Social Justice and Empowerment, Government of India',
                   style: AppTypography.bodySm.copyWith(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),

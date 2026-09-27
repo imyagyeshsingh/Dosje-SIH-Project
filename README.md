@@ -34,7 +34,7 @@ graph TD
 
     subgraph Khushboo_AI["Khushboo's AI / ML & Computer Vision Pipeline"]
         RTSP["RTSP Live Streams / Video Feeds"]
-        YOLO["YOLOv8 People Detection & Head Count"]
+        AI_MODEL["AI Vision & Detection Pipeline (Selected by Khushboo)"]
         OpenCV["OpenCV Ingestion & Preprocessing"]
         Classifier["Activity & Anomaly Classifier (Crowding, Inactivity, Suspicious)"]
     end
@@ -58,14 +58,14 @@ graph TD
 
 ## 🤖 Khushboo's AI/ML & Computer Vision Pipeline
 
-Khushboo owns the **AI Inference, Computer Vision, and Real-Time Event Extraction Engine**. The platform was strictly built with a clean architectural boundary so that AI models stream directly into the backend without tight coupling:
+Khushboo owns the **AI Inference, Computer Vision, and Real-Time Event Extraction Engine**. The platform was strictly built with a clean architectural boundary so that any AI model architecture selected by Khushboo streams directly into the backend without tight coupling:
 
 1. **Computer Vision & Video Ingestion**:
-   - RTSP/HLS stream ingestion via OpenCV.
+   - RTSP/HLS stream ingestion via OpenCV or preferred video pipeline.
    - Video file chunking and frame sampling.
-2. **YOLO Inference**:
-   - Real-time person detection, head count, and occupancy tracking.
-   - Bounding box rendering and video inference overlays.
+2. **AI Inference & People Detection**:
+   - Real-time person detection, head count, and occupancy tracking (using models selected by Khushboo).
+   - Detection bounding boxes and video overlays.
 3. **Activity Classification**:
    - `NORMAL`: Standard operational facility activity.
    - `SUSPICIOUS_BEHAVIOR`: Unscheduled movement, perimeter breach, tampering.
@@ -100,7 +100,7 @@ Content-Type: application/json
 | **1** | **Project CRUD** | Facility onboarding, scheme code generation, coordinates, progress tracking. | ✅ Verified |
 | **2** | **Project Summary** | Consolidated operational snapshot, metrics, and KPI aggregation. | ✅ Verified |
 | **3** | **CCTV / Camera Management** | Camera registration, RTSP stream URLs, health automation (`last_active` tracking). | ✅ Verified |
-| **4** | **AI Detection Boundary** | Ingestion of YOLO count, activity classifications, and historical summaries. | ✅ Verified |
+| **4** | **AI Detection Boundary** | Ingestion of people count, activity classifications, and historical summaries. | ✅ Verified |
 | **5** | **Attendance Engine** | Expected vs detected workers, real-time attendance percentage derivation. | ✅ Verified |
 | **6** | **Risk Score Engine** | Multi-signal weighted risk calculation (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`). | ✅ Verified |
 | **7** | **Alert Generation** | Anomaly-driven alerts with automated deduplication for open items. | ✅ Verified |

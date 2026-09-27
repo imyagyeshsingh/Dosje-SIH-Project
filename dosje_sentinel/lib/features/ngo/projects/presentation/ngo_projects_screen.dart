@@ -31,11 +31,16 @@ class _NgoProjectsScreenState extends ConsumerState<NgoProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     final projectsAsync = ref.watch(ngoProjectsProvider);
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final orgSubtitle = user?.organizationName != null
+        ? '${user!.organizationName} (${user.organizationId ?? "NGO"})'
+        : 'Registered Schemes & Facilities';
 
     return Scaffold(
-      appBar: const CivicAppBar(
+      appBar: CivicAppBar(
         title: 'My Registered Projects',
-        subtitle: 'Samarpan Welfare Society (NGO-8821)',
+        subtitle: orgSubtitle,
         showEmblem: true,
       ),
       body: SafeArea(
@@ -59,14 +64,14 @@ class _NgoProjectsScreenState extends ConsumerState<NgoProjectsScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('All Projects (3)', 'all'),
+                        _buildFilterChip('All Projects', 'all'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Active (2)', 'active'),
+                        _buildFilterChip('Active', 'active'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Under Review (1)', 'review'),
+                        _buildFilterChip('Under Review', 'review'),
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          'Inspection Ongoing (1)',
+                          'Inspection Ongoing',
                           'inspection',
                         ),
                       ],
@@ -99,6 +104,31 @@ class _NgoProjectsScreenState extends ConsumerState<NgoProjectsScreen> {
                     }
                     return matchesQuery && matchesFilter;
                   }).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.folder_open_outlined,
+                              size: 48,
+                              color: AppColors.outline,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No registered projects found',
+                              style: AppTypography.titleMd.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
                   return ListView.separated(
                     padding: const EdgeInsets.symmetric(

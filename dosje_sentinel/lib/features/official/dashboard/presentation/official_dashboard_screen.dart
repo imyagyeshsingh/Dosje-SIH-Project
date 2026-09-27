@@ -97,11 +97,12 @@ class OfficialDashboardScreen extends ConsumerWidget {
               future: analyticsRepo.getDashboardMetrics(),
               builder: (context, snapshot) {
                 final metrics = snapshot.data ?? {};
-                final totalProjects = metrics['totalProjects'] ?? 148;
-                final activeInspections = metrics['activeInspections'] ?? 12;
+                final totalProjects = metrics['totalProjects'] ?? 0;
+                final activeInspections = metrics['activeInspections'] ?? 0;
                 final pendingRegistrations =
-                    metrics['pendingNgoRegistrations'] ?? 4;
-                final highRisk = metrics['highRiskFacilities'] ?? 7;
+                    metrics['pendingNgoRegistrations'] ?? 0;
+                final highRisk = metrics['highRiskFacilities'] ?? 0;
+                final cctvOnline = metrics['cctvFeedsActive'] ?? 0;
 
                 return Column(
                   children: [
@@ -186,16 +187,16 @@ class OfficialDashboardScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '582',
+                                  '$cctvOnline',
                                   style: AppTypography.headlineSm.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Online nationwide',
+                                  cctvOnline > 0 ? 'Online nationwide' : 'No streams online',
                                   style: AppTypography.caption.copyWith(
-                                    color: AppColors.success,
+                                    color: cctvOnline > 0 ? AppColors.success : AppColors.outline,
                                   ),
                                 ),
                               ],

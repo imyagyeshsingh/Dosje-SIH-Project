@@ -17,6 +17,8 @@ class NgoHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
     final primarySummaryAsync = ref.watch(primaryProjectSummaryProvider);
     final notifSummaryAsync = ref.watch(notificationSummaryProvider);
     final unreadCount = notifSummaryAsync.value?.unread ?? 0;
@@ -138,19 +140,21 @@ class NgoHomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Namaste & Good Morning,',
+                          'Namaste & Welcome,',
                           style: AppTypography.bodySm,
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Rajesh Sharma',
+                          user?.name ?? 'NGO Representative',
                           style: AppTypography.headlineSm.copyWith(
                             color: AppColors.primaryContainer,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Samarpan Welfare Society (NGO-UP-8821)',
+                          user?.organizationName != null
+                              ? '${user!.organizationName} (${user.organizationId ?? "NGO"})'
+                              : 'DoSJE Monitoring Portal',
                           style: AppTypography.bodySm.copyWith(
                             color: AppColors.onSurfaceVariant,
                           ),
@@ -168,117 +172,122 @@ class NgoHomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // 2. Urgent Video Inspection Action Card (High Priority Alert)
-            CivicCard(
-              leadingStripeColor: AppColors.error,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorBg,
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.pillRadius,
+            // 2. Urgent Video Inspection Action Card (Only if active surprise evaluation is ongoing)
+            if (primarySummaryAsync.value?.project.hasActiveInspection == true) ...[
+              CivicCard(
+                leadingStripeColor: AppColors.error,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.errorBg,
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.pillRadius,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.error,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'SURPRISE VIDEO INSPECTION REQUESTED',
+                                style: AppTypography.labelSm.copyWith(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppColors.error,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'SURPRISE VIDEO INSPECTION REQUESTED',
-                              style: AppTypography.labelSm.copyWith(
-                                color: AppColors.error,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        'URGENT',
-                        style: AppTypography.labelSm.copyWith(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'District Rehabilitation & Support Centre',
-                    style: AppTypography.titleMd.copyWith(
-                      color: AppColors.primaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text('Scheme ID: DSJ-AG-1042', style: AppTypography.bodySm),
-                  const SizedBox(height: AppSpacing.sm),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceLow,
-                      borderRadius: BorderRadius.circular(
-                        AppSpacing.buttonRadius,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.crisis_alert,
-                          size: 20,
-                          color: AppColors.error,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Department inspection officer is ready to initiate live video inspection. Video authorization required.',
-                            style: AppTypography.bodyMd.copyWith(fontSize: 13),
+                        Text(
+                          'URGENT',
+                          style: AppTypography.labelSm.copyWith(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CivicButton(
-                          label: 'Join Video Inspection',
-                          icon: Icons.videocam,
-                          onPressed: () => context.push('/ngo/video/incoming'),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      primarySummaryAsync.value?.project.name ?? 'Assigned Facility',
+                      style: AppTypography.titleMd.copyWith(
+                        color: AppColors.primaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Scheme ID: ${primarySummaryAsync.value?.project.code ?? "N/A"}',
+                      style: AppTypography.bodySm,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLow,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.buttonRadius,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      CivicButton(
-                        label: 'Details',
-                        type: ButtonType.secondary,
-                        width: 90,
-                        onPressed: () => context.push('/ngo/inspections/ins_1'),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.crisis_alert,
+                            size: 20,
+                            color: AppColors.error,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'Department inspection officer is ready to initiate live video inspection. Video authorization required.',
+                              style: AppTypography.bodyMd.copyWith(fontSize: 13),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CivicButton(
+                            label: 'Join Video Inspection',
+                            icon: Icons.videocam,
+                            onPressed: () => context.push('/ngo/video/incoming'),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        CivicButton(
+                          label: 'Details',
+                          type: ButtonType.secondary,
+                          width: 90,
+                          onPressed: () => context.push('/ngo/inspections/${primarySummaryAsync.value?.project.activeInspectionId ?? "1"}'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.md),
+            ],
 
             // 3. Primary Assigned Project Summary Card
             primarySummaryAsync.when(
@@ -299,159 +308,30 @@ class NgoHomeScreen extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryFixed,
-                    borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
-                  ),
-                  child: Text(
-                    '2 Pending Requests',
-                    style: AppTypography.labelSm.copyWith(
-                      color: AppColors.onSecondaryFixed,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-
-            // Action Card 1
             CivicCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.badge,
-                          size: 20,
-                          color: AppColors.primaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Staff Attendance Register Submission',
-                              style: AppTypography.titleMd.copyWith(
-                                fontSize: 14,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.alarm,
-                                  size: 14,
-                                  color: AppColors.error,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Deadline: Today, 5:00 PM',
-                                  style: AppTypography.bodySm.copyWith(
-                                    color: AppColors.error,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Upload certified staff attendance register snapshot certified by center superintendent for cycle #2.',
-                    style: AppTypography.bodySm,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: CivicButton(
-                      label: 'Respond',
-                      icon: Icons.chevron_right,
-                      width: 120,
-                      onPressed: () =>
-                          context.push('/ngo/inspections/ins_1/response'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: AppColors.success,
+                      size: 22,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            // Action Card 2
-            CivicCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.restaurant,
-                          size: 20,
-                          color: AppColors.saffron,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No pending action requests. All submissions up to date.',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Facility Meal Quality Evidence',
-                              style: AppTypography.titleMd.copyWith(
-                                fontSize: 14,
-                              ),
-                            ),
-                            Text(
-                              'Inspection: INS-2026-00482',
-                              style: AppTypography.bodySm,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Provide timestamped photographs of mess storage and daily preparation register.',
-                    style: AppTypography.bodySm,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: CivicButton(
-                      label: 'Upload Evidence',
-                      icon: Icons.photo_camera,
-                      type: ButtonType.secondary,
-                      width: 160,
-                      onPressed: () => context.push('/ngo/evidence/capture'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -474,45 +354,26 @@ class NgoHomeScreen extends ConsumerWidget {
               ],
             ),
             CivicCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: AppColors.surfaceContainerHigh,
-                      child: Icon(
-                        Icons.description,
-                        size: 18,
-                        color: AppColors.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.notifications_none,
+                      color: AppColors.outline,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No new official notifications from the department.',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
                       ),
                     ),
-                    title: const Text(
-                      'Inspection Report INS-2026-00419 published',
-                    ),
-                    subtitle: const Text(
-                      '2 hours ago • Central Monitoring Desk',
-                    ),
-                    trailing: const Icon(Icons.chevron_right, size: 18),
-                    onTap: () => context.push('/ngo/notifications'),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: AppColors.surfaceContainerHigh,
-                      child: Icon(
-                        Icons.workspace_premium,
-                        size: 18,
-                        color: AppColors.saffron,
-                      ),
-                    ),
-                    title: const Text(
-                      'Quarterly compliance certificate validated & stamped',
-                    ),
-                    subtitle: const Text('Yesterday • State Division'),
-                    trailing: const Icon(Icons.chevron_right, size: 18),
-                    onTap: () => context.push('/ngo/notifications'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -524,20 +385,43 @@ class NgoHomeScreen extends ConsumerWidget {
 
   Widget _buildPrimaryProjectCard(BuildContext context, ProjectSummaryModel? summary) {
     final proj = summary?.project;
-    final facilityName = proj != null && proj.name.isNotEmpty
-        ? proj.name
-        : 'District Rehabilitation & Support Centre';
-    final facilityCode = proj != null && proj.code.isNotEmpty
-        ? proj.code
-        : 'DSJ-AG-1042';
-    final facilityStatus = proj != null && proj.status.isNotEmpty
-        ? proj.status
-        : 'Active';
-    final facilityAddress = proj != null && proj.address.isNotEmpty
-        ? proj.address
-        : 'Agra, Uttar Pradesh';
-    final activeCams = summary?.activeCameras ?? proj?.cctvActiveCameras ?? 4;
-    final projectId = proj?.id ?? 'proj_1';
+    if (proj == null) {
+      return CivicCard(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ASSIGNED FACILITY',
+                style: AppTypography.labelSm,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'No Facility Assigned Yet',
+                style: AppTypography.titleMd.copyWith(
+                  color: AppColors.primaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Projects allocated to your organization by the Directorate will appear here automatically.',
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final facilityName = proj.name;
+    final facilityCode = proj.code;
+    final facilityStatus = proj.status;
+    final facilityAddress = proj.address;
+    final activeCams = summary?.activeCameras ?? proj.cctvActiveCameras;
+    final projectId = proj.id;
 
     return CivicCard(
       child: Column(

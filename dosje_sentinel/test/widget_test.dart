@@ -28,7 +28,7 @@ void main() {
         // Verified single unified login UI
         expect(find.text('DoSJE Sentinel'), findsOneWidget);
         expect(find.text('Sign In'), findsOneWidget);
-        expect(find.text('Continue with Clerk'), findsOneWidget);
+        expect(find.text('Get Verification Code'), findsOneWidget);
         expect(
           find.textContaining('single sign-on', findRichText: true),
           findsOneWidget,
@@ -163,9 +163,75 @@ void main() {
       expect(authState.isOfficial, isTrue);
       expect(authState.user?.role, UserRole.official);
       expect(authState.hasPermission(Permission.viewAllNgos), isTrue);
+    });
+
+    // TEST 8b: itsmerudraksha@gmail.com automatically resolves to Official
+    test('TEST 8b: itsmerudraksha@gmail.com resolves to Official and routes to /official/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'itsmerudraksha@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(authState.hasPermission(Permission.viewAllProjects), isTrue);
+      expect(authState.hasPermission(Permission.canApproveAudit), isTrue);
       expect(
         AuthGuard.resolveRedirect('/login', authState),
         '/official/dashboard',
+      );
+    });
+
+    // TEST 8c: itsmerudraksha1@gmail.com automatically resolves to PMU Inspector
+    test('TEST 8c: itsmerudraksha1@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'itsmerudraksha1@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isInspector, isTrue);
+      expect(authState.user?.role, UserRole.inspector);
+      expect(authState.hasPermission(Permission.executeInspection), isTrue);
+      expect(authState.hasPermission(Permission.submitAuditFindings), isTrue);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/inspector/dashboard',
+      );
+    });
+
+    // TEST 8d: OTP send and verify for Official itsmerudraksha@gmail.com
+    test('TEST 8d: OTP authentication for itsmerudraksha@gmail.com resolves to Official', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final otp = await authService.sendOtp('itsmerudraksha@gmail.com');
+      final authState = await authService.verifyOtp(
+        email: 'itsmerudraksha@gmail.com',
+        otp: otp ?? '123456',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/official/dashboard',
+      );
+    });
+
+    // TEST 8e: OTP send and verify for PMU itsmerudraksha1@gmail.com
+    test('TEST 8e: OTP authentication for itsmerudraksha1@gmail.com resolves to PMU Inspector', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final otp = await authService.sendOtp('itsmerudraksha1@gmail.com');
+      final authState = await authService.verifyOtp(
+        email: 'itsmerudraksha1@gmail.com',
+        otp: otp ?? '123456',
+      );
+
+      expect(authState.isInspector, isTrue);
+      expect(authState.user?.role, UserRole.inspector);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/inspector/dashboard',
       );
     });
 
@@ -358,7 +424,27 @@ void main() {
     test(
       'MockNgoRepository getMyProfile and submitRegistration updates status',
       () async {
-        final repo = MockNgoRepository();
+        final repo = MockNgoRepository(
+          initialProfile: const NgoProfileModel(
+            id: 'test_ngo_1',
+            fullName: 'Test Representative',
+            designation: 'General Secretary',
+            mobileNumber: '+919999999999',
+            email: 'test@example.org',
+            ngoName: 'Test Welfare Society',
+            organizationType: 'Society',
+            registrationNumber: 'TEST-REG-101',
+            establishmentYear: 2020,
+            contactNumber: '+919999999999',
+            officialEmail: 'info@test.org',
+            address: '123 Test Road',
+            state: 'Uttar Pradesh',
+            district: 'Lucknow',
+            city: 'Lucknow',
+            pinCode: '226001',
+            status: NgoRegistrationStatus.incomplete,
+          ),
+        );
         final profile = await repo.getMyProfile();
 
         expect(profile, isNotNull);

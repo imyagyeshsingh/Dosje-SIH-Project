@@ -9,73 +9,27 @@ abstract class AnalyticsRepository {
 }
 
 class MockAnalyticsRepository implements AnalyticsRepository {
-  final List<AiRiskProfile> _profiles = [
-    AiRiskProfile(
-      facilityId: 'DSJ-AG-1042',
-      facilityName: 'District Rehabilitation & Support Centre (Agra)',
-      riskScore: 74,
-      riskLevel: RiskLevel.medium,
-      riskFactors: const [
-        RiskFactor(
-          title: 'Morning Muster Variance',
-          description:
-              'Headcount telemetry shows deviation from enrolled registry.',
-          scoreImpact: 14.5,
-        ),
-        RiskFactor(
-          title: 'Pending Quarterly Stamping',
-          description: 'Documentation verification overdue by 4 days.',
-          scoreImpact: 8.0,
-        ),
-      ],
-      anomalyAlerts: const [
-        'Unscheduled offline duration logged on CCTV-3 (28 mins)',
-      ],
-      calculatedAt: DateTime.now(),
-    ),
-    AiRiskProfile(
-      facilityId: 'DSJ-VR-2089',
-      facilityName: 'Integrated Child Development & Daycare (Varanasi)',
-      riskScore: 22,
-      riskLevel: RiskLevel.low,
-      riskFactors: const [],
-      anomalyAlerts: const [],
-      calculatedAt: DateTime.now(),
-    ),
-    AiRiskProfile(
-      facilityId: 'DSJ-LK-3014',
-      facilityName: 'Senior Citizens Assisted Living Home (Lucknow)',
-      riskScore: 48,
-      riskLevel: RiskLevel.medium,
-      riskFactors: const [
-        RiskFactor(
-          title: 'Renewal Under Evaluation',
-          description:
-              'Operating on provisional extension pending state approval.',
-          scoreImpact: 12.0,
-        ),
-      ],
-      anomalyAlerts: const [],
-      calculatedAt: DateTime.now(),
-    ),
-  ];
+  final List<AiRiskProfile> _profiles;
+
+  MockAnalyticsRepository({List<AiRiskProfile>? initialProfiles})
+      : _profiles = initialProfiles != null ? List.from(initialProfiles) : [];
 
   @override
   Future<List<AiRiskProfile>> getRiskProfiles() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 100));
     return List.unmodifiable(_profiles);
   }
 
   @override
   Future<Map<String, dynamic>> getDashboardMetrics() async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 100));
     return {
-      'totalProjects': 148,
-      'activeInspections': 12,
-      'pendingNgoRegistrations': 4,
-      'cctvFeedsActive': 582,
-      'highRiskFacilities': 7,
-      'stateAverageCompliance': 94.2,
+      'totalProjects': _profiles.length,
+      'activeInspections': 0,
+      'pendingNgoRegistrations': 0,
+      'cctvFeedsActive': 0,
+      'highRiskFacilities': 0,
+      'stateAverageCompliance': 0.0,
     };
   }
 }
@@ -123,7 +77,7 @@ class ApiAnalyticsRepository implements AnalyticsRepository {
       } catch (_) {}
     }
 
-    return MockAnalyticsRepository().getRiskProfiles();
+    return [];
   }
 
   @override
@@ -149,14 +103,21 @@ class ApiAnalyticsRepository implements AnalyticsRepository {
         return {
           'totalProjects': projects.length,
           'activeInspections': activeInspectionsCount,
-          'pendingNgoRegistrations': 4,
+          'pendingNgoRegistrations': 0,
           'cctvFeedsActive': cctvActiveCount,
           'highRiskFacilities': highRiskCount,
-          'stateAverageCompliance': 94.2,
+          'stateAverageCompliance': projects.isEmpty ? 0.0 : 94.2,
         };
       } catch (_) {}
     }
-    return MockAnalyticsRepository().getDashboardMetrics();
+    return {
+      'totalProjects': 0,
+      'activeInspections': 0,
+      'pendingNgoRegistrations': 0,
+      'cctvFeedsActive': 0,
+      'highRiskFacilities': 0,
+      'stateAverageCompliance': 0.0,
+    };
   }
 }
 

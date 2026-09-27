@@ -9,6 +9,7 @@ import '../../../../shared/widgets/civic_app_bar.dart';
 import '../../../../shared/widgets/civic_card.dart';
 import '../../../../shared/widgets/civic_button.dart';
 import '../../../../shared/widgets/status_chip.dart';
+import '../../../../shared/providers/core_providers.dart';
 
 class NgoSubmissionReceiptScreen extends ConsumerWidget {
   final String inspectionId;
@@ -17,6 +18,14 @@ class NgoSubmissionReceiptScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final signatoryName =
+        '${user?.name ?? "NGO Signatory"} (${user?.designation ?? "Authorized Officer"})';
+    final facilityName = user?.organizationName != null
+        ? '${user!.organizationName} Facility'
+        : 'Registered Project Center';
+
     return Scaffold(
       appBar: const CivicAppBar(
         title: 'Submission Receipt',
@@ -151,11 +160,11 @@ class NgoSubmissionReceiptScreen extends ConsumerWidget {
                   ),
                   _buildManifestRow(
                     'Signatory:',
-                    'Shri Rajesh Sharma (Project Director)',
+                    signatoryName,
                   ),
                   _buildManifestRow(
                     'Facility:',
-                    'District Rehabilitation & Support Centre',
+                    facilityName,
                   ),
                   _buildManifestRow(
                     'Supervising Desk:',
