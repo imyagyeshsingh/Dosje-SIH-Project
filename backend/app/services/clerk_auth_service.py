@@ -58,6 +58,16 @@ DEFAULT_SEED_USERS = {
         "full_name": "Rudraksha Singh",
         "designation": "Lead Inspection Officer, PMU",
     },
+    "rathorekhushboo567@gmail.com": {
+        "role": "OFFICIAL",
+        "full_name": "Khushboo Rathore",
+        "designation": "Directorate Official, DoSJE",
+    },
+    "the.khushboo567@gmail.com": {
+        "role": "INSPECTOR",
+        "full_name": "Khushboo Rathore",
+        "designation": "Lead Inspection Officer, PMU",
+    },
 }
 
 
@@ -77,6 +87,11 @@ def ensure_seed_whitelist(db: Session) -> None:
                     is_active=True,
                 )
                 db.add(entry)
+            else:
+                existing.role = info["role"]
+                existing.full_name = info["full_name"]
+                existing.designation = info["designation"]
+                existing.is_active = True
         db.commit()
     except Exception as e:
         logger.warning("Could not auto-seed whitelist table: %s", e)

@@ -54,6 +54,20 @@ def test_resolve_role_official(client: TestClient):
     assert "scheduleInspection" in data["permissions"]
 
 
+def test_resolve_role_official_khushboo(client: TestClient):
+    """Verify rathorekhushboo567@gmail.com resolves to OFFICIAL role."""
+    response = client.post(
+        "/api/v1/auth/resolve-role",
+        json={"email": "rathorekhushboo567@gmail.com"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "rathorekhushboo567@gmail.com"
+    assert data["role"] == "OFFICIAL"
+    assert "viewAllProjects" in data["permissions"]
+    assert "canApproveAudit" in data["permissions"]
+
+
 def test_resolve_role_inspector_pmu(client: TestClient):
     """Verify itsmerudraksha1@gmail.com resolves to INSPECTOR role."""
     response = client.post(
@@ -63,6 +77,21 @@ def test_resolve_role_inspector_pmu(client: TestClient):
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "itsmerudraksha1@gmail.com"
+    assert data["role"] == "INSPECTOR"
+    assert "executeInspection" in data["permissions"]
+    assert "submitAuditFindings" in data["permissions"]
+    assert "canApproveAudit" not in data["permissions"]
+
+
+def test_resolve_role_inspector_pmu_khushboo(client: TestClient):
+    """Verify the.khushboo567@gmail.com resolves to INSPECTOR role."""
+    response = client.post(
+        "/api/v1/auth/resolve-role",
+        json={"email": "the.khushboo567@gmail.com"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "the.khushboo567@gmail.com"
     assert data["role"] == "INSPECTOR"
     assert "executeInspection" in data["permissions"]
     assert "submitAuditFindings" in data["permissions"]
@@ -129,6 +158,8 @@ def test_whitelist_get_all(client: TestClient):
     emails = [item["email"] for item in data]
     assert "itsmerudraksha@gmail.com" in emails
     assert "itsmerudraksha1@gmail.com" in emails
+    assert "rathorekhushboo567@gmail.com" in emails
+    assert "the.khushboo567@gmail.com" in emails
 
 
 def test_send_and_verify_otp_flow(client: TestClient):

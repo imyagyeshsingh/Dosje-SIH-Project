@@ -185,6 +185,26 @@ void main() {
       );
     });
 
+    // TEST 8b2: rathorekhushboo567@gmail.com automatically resolves to Official
+    test('TEST 8b2: rathorekhushboo567@gmail.com resolves to Official and routes to /official/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'rathorekhushboo567@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isOfficial, isTrue);
+      expect(authState.user?.role, UserRole.official);
+      expect(authState.user?.fullName, 'Khushboo Rathore');
+      expect(authState.user?.designation, 'Directorate Official, DoSJE');
+      expect(authState.hasPermission(Permission.viewAllProjects), isTrue);
+      expect(authState.hasPermission(Permission.canApproveAudit), isTrue);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/official/dashboard',
+      );
+    });
+
     // TEST 8c: itsmerudraksha1@gmail.com automatically resolves to PMU Inspector
     test('TEST 8c: itsmerudraksha1@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
       final authService = DefaultAuthService(apiClient: ApiClient());
@@ -195,6 +215,26 @@ void main() {
 
       expect(authState.isInspector, isTrue);
       expect(authState.user?.role, UserRole.inspector);
+      expect(authState.hasPermission(Permission.executeInspection), isTrue);
+      expect(authState.hasPermission(Permission.submitAuditFindings), isTrue);
+      expect(
+        AuthGuard.resolveRedirect('/login', authState),
+        '/inspector/dashboard',
+      );
+    });
+
+    // TEST 8c2: the.khushboo567@gmail.com automatically resolves to PMU Inspector
+    test('TEST 8c2: the.khushboo567@gmail.com resolves to PMU Inspector and routes to /inspector/dashboard', () async {
+      final authService = DefaultAuthService(apiClient: ApiClient());
+      final authState = await authService.signInWithClerk(
+        email: 'the.khushboo567@gmail.com',
+        password: 'password123',
+      );
+
+      expect(authState.isInspector, isTrue);
+      expect(authState.user?.role, UserRole.inspector);
+      expect(authState.user?.fullName, 'Khushboo Rathore');
+      expect(authState.user?.designation, 'Lead Inspection Officer, PMU');
       expect(authState.hasPermission(Permission.executeInspection), isTrue);
       expect(authState.hasPermission(Permission.submitAuditFindings), isTrue);
       expect(

@@ -314,6 +314,7 @@ class DefaultAuthService implements AuthService {
 
     final isInspector =
         normalized == 'itsmerudraksha1@gmail.com' ||
+        normalized == 'the.khushboo567@gmail.com' ||
         roleHint == UserRole.inspector ||
         normalized.contains('inspector') ||
         normalized.contains('pmu');
@@ -321,6 +322,7 @@ class DefaultAuthService implements AuthService {
     final isOfficial =
         !isInspector &&
         (normalized == 'itsmerudraksha@gmail.com' ||
+            normalized == 'rathorekhushboo567@gmail.com' ||
             roleHint == UserRole.official ||
             normalized.contains('official') ||
             normalized.contains('dosje.gov.in') ||
@@ -333,7 +335,9 @@ class DefaultAuthService implements AuthService {
         email: userEmail,
         fullName: normalized == 'itsmerudraksha1@gmail.com'
             ? 'Rudraksha Singh'
-            : 'PMU Inspector',
+            : (normalized == 'the.khushboo567@gmail.com'
+                ? 'Khushboo Rathore'
+                : 'PMU Inspector'),
         designation: 'Lead Inspection Officer, PMU',
         role: UserRole.inspector,
         permissions: const [
@@ -365,8 +369,11 @@ class DefaultAuthService implements AuthService {
         email: userEmail,
         fullName: normalized == 'itsmerudraksha@gmail.com'
             ? 'Dr. Rudraksha Verma, IAS'
-            : 'Directorate Official',
-        designation: normalized == 'itsmerudraksha@gmail.com'
+            : (normalized == 'rathorekhushboo567@gmail.com'
+                ? 'Khushboo Rathore'
+                : 'Directorate Official'),
+        designation: (normalized == 'itsmerudraksha@gmail.com' ||
+                normalized == 'rathorekhushboo567@gmail.com')
             ? 'Directorate Official, DoSJE'
             : 'Directorate Officer, DoSJE',
         role: UserRole.official,
