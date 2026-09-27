@@ -142,9 +142,19 @@ def resolve_user_role_from_db_or_seed(
         role = "NGO_REPRESENTATIVE"
         permissions = NGO_PERMISSIONS
         user_id = f"ngo_{normalized_email.split('@')[0]}"
-        ngo_status = "incomplete"
-        org_id = None
-        org_name = None
+        # Query database to check if this NGO has submitted registration
+        from app.models.ngo import NGO
+        ngo_record = db.query(NGO).filter(NGO.email.ilike(normalized_email)).first()
+        if ngo_record:
+            ngo_status = ngo_record.status or "submitted"
+            full_name = ngo_record.full_name or full_name
+            designation = ngo_record.designation or designation
+            org_id = str(ngo_record.id)
+            org_name = ngo_record.ngo_name
+        else:
+            ngo_status = "incomplete"
+            org_id = None
+            org_name = None
         authorized_projects = []
 
     effective_clerk_id = clerk_user_id or f"user_clerk_{normalized_email.replace('@', '_').replace('.', '_')}"

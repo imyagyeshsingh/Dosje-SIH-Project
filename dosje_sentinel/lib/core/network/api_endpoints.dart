@@ -27,6 +27,11 @@ class ApiEndpoints {
     _customBaseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
+  static String get realtimeWsUrl {
+    final clean = baseUrl.replaceFirst(RegExp(r'^http'), 'ws');
+    return '$clean/ws/realtime';
+  }
+
   // Auth & Identity Handshake
   static const String login = '/api/v1/auth/login';
   static const String logout = '/api/v1/auth/logout';

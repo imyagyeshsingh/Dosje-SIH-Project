@@ -105,6 +105,7 @@ class DefaultAuthService implements AuthService {
         final userData = data['user'] as Map<String, dynamic>? ?? {};
 
         apiClient.setAuthToken(token);
+        apiClient.setUserEmail(cleanEmail);
 
         final roleStr =
             userData['role']?.toString().toUpperCase() ?? 'NGO_REPRESENTATIVE';
@@ -173,6 +174,7 @@ class DefaultAuthService implements AuthService {
     final clerkUserId = 'user_clerk_$sanitized';
     final token = 'clerk_session_${DateTime.now().millisecondsSinceEpoch}';
     apiClient.setAuthToken(token);
+    apiClient.setUserEmail(cleanEmail);
 
     return resolveAuthorization(
       token,
@@ -219,6 +221,7 @@ class DefaultAuthService implements AuthService {
     }
 
     apiClient.setAuthToken(clerkToken);
+    apiClient.setUserEmail(cleanEmail);
 
     // 2. FastAPI Authorization / Identity Handshake
     return await resolveAuthorization(
@@ -515,6 +518,7 @@ class DefaultAuthService implements AuthService {
   @override
   Future<AuthState> signOut() async {
     apiClient.setAuthToken(null);
+    apiClient.setUserEmail(null);
     return const AuthState(status: AuthStatus.unauthenticated);
   }
 }

@@ -6,6 +6,7 @@ import 'api_endpoints.dart';
 class ApiClient {
   late final Dio _dio;
   String? _authToken;
+  String? _userEmail;
 
   ApiClient({Dio? dio}) {
     _dio =
@@ -28,6 +29,9 @@ class ApiClient {
           if (_authToken != null) {
             options.headers['Authorization'] = 'Bearer $_authToken';
           }
+          if (_userEmail != null && _userEmail!.isNotEmpty) {
+            options.headers['X-User-Email'] = _userEmail;
+          }
           return handler.next(options);
         },
         onError: (DioException e, handler) {
@@ -48,6 +52,13 @@ class ApiClient {
   void setAuthToken(String? token) {
     _authToken = token;
   }
+
+  void setUserEmail(String? email) {
+    _userEmail = email;
+  }
+
+  String? get userEmail => _userEmail;
+  String? get authToken => _authToken;
 
   Dio get dio => _dio;
 

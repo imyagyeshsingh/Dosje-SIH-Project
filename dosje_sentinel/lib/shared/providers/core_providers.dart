@@ -165,11 +165,13 @@ final authNotifierProvider = authStateProvider;
 
 // Repositories
 final ngoRepositoryProvider = Provider<NgoRepository>((ref) {
-  return MockNgoRepository();
+  final client = ref.watch(apiClientProvider);
+  return ApiNgoRepository(apiClient: client);
 });
 
 final officialNgoRepositoryProvider = Provider<OfficialNgoRepository>((ref) {
-  return MockOfficialNgoRepository();
+  final client = ref.watch(apiClientProvider);
+  return ApiOfficialNgoRepository(apiClient: client);
 });
 
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {

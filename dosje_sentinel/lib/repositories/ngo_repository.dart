@@ -114,7 +114,10 @@ class ApiNgoRepository implements NgoRepository {
 
   @override
   Future<NgoProfileModel> submitRegistration(String ngoId) async {
-    final response = await apiClient.post(ApiEndpoints.ngoSubmitRegistration);
+    final response = await apiClient.post(
+      ApiEndpoints.ngoSubmitRegistration,
+      data: {'id': ngoId},
+    );
     return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
   }
 }
