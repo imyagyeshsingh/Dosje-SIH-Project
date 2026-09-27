@@ -582,6 +582,41 @@ void main() {
         updatedNgos.firstWhere((n) => n.id == 'ngo_realtime_999').status,
         NgoRegistrationStatus.submitted,
       );
+
+      // Verify Official can mark as Under Review
+      await officialRepo.markUnderReview('ngo_realtime_999', 'Documents under verification');
+      final underReviewNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(underReviewNgo?.status, NgoRegistrationStatus.underReview);
+
+      // Verify Official can mark as Correction Needed
+      await officialRepo.requestCorrection('ngo_realtime_999', 'Please upload balance sheet');
+      final correctionNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(correctionNgo?.status, NgoRegistrationStatus.correctionRequired);
+      expect(correctionNgo?.correctionNotes, 'Please upload balance sheet');
+
+      // Verify Official can mark as Approved
+      await officialRepo.approveRegistration('ngo_realtime_999');
+      final approvedNgo = await officialRepo.getNgoDetails('ngo_realtime_999');
+      expect(approvedNgo?.status, NgoRegistrationStatus.approved);
+    });
+
+    test('Router root location / resolves correctly without throwing GoException', () {
+      final authState = AuthState(
+        status: AuthStatus.authenticatedWithContext,
+        user: UserModel(
+          id: 'off_1',
+          clerkUserId: 'user_clerk_off',
+          email: 'official@dosje.gov.in',
+          fullName: 'Official User',
+          role: UserRole.official,
+        ),
+      );
+      final resolved = AuthGuard.resolveRedirect('/', authState);
+      expect(resolved, '/official/dashboard');
+
+      const unauthState = AuthState(status: AuthStatus.unauthenticated);
+      final unauthResolved = AuthGuard.resolveRedirect('/', unauthState);
+      expect(unauthResolved, '/login');
     });
   });
 }

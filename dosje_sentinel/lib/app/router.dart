@@ -58,6 +58,11 @@ import '../navigation/ngo_scaffold.dart';
 import '../navigation/official_scaffold.dart';
 import '../shared/models/video_session_model.dart';
 import '../shared/providers/core_providers.dart';
+import '../shared/widgets/civic_app_bar.dart';
+import '../shared/widgets/civic_button.dart';
+import 'theme/colors.dart';
+import 'theme/typography.dart';
+import 'theme/spacing.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -65,7 +70,61 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: _RiverpodRefreshListenable(ref),
     redirect: (context, state) =>
         AuthGuard.redirect(context, state, ref.read(authNotifierProvider)),
+    errorBuilder: (context, state) {
+      final auth = ref.read(authNotifierProvider);
+      final homeRoute = AuthGuard.resolveRedirect('/', auth) ?? '/login';
+      return Scaffold(
+        appBar: const CivicAppBar(
+          title: 'DoSJE Sentinel',
+          subtitle: 'Navigation Resolver',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.explore_off_outlined,
+                  size: 64,
+                  color: AppColors.error,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Page Not Found',
+                  style: AppTypography.headlineSm.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  state.error?.message ?? 'The requested page was not found.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodySm.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                CivicButton(
+                  label: 'Return to Dashboard',
+                  icon: Icons.home_rounded,
+                  onPressed: () => context.go(homeRoute),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
     routes: [
+      // Root redirect to user's authorized home dashboard or login
+      GoRoute(
+        path: '/',
+        redirect: (context, state) =>
+            AuthGuard.resolveRedirect('/', ref.read(authNotifierProvider)) ??
+            '/login',
+      ),
+
       // Splash & Login
       GoRoute(
         path: '/splash',
@@ -365,6 +424,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/official/ngos',
                 builder: (context, state) => const AllNgosScreen(),
                 routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final id = state.pathParameters['id'] ?? '';
+                      return NgoDetailsScreen(ngoId: id);
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'review',
+                        builder: (context, state) {
+                          final id = state.pathParameters['id'] ?? '';
+                          return NgoRegistrationReviewScreen(ngoId: id);
+                        },
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'detail/:id',
                     builder: (context, state) {

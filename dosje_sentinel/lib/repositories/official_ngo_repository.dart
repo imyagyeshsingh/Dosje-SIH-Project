@@ -7,7 +7,13 @@ abstract class OfficialNgoRepository {
   Future<List<NgoProfileModel>> getAllNgos();
   Future<NgoProfileModel?> getNgoDetails(String ngoId);
   Future<NgoProfileModel> approveRegistration(String ngoId);
+  Future<NgoProfileModel> markUnderReview(String ngoId, [String? notes]);
   Future<NgoProfileModel> requestCorrection(String ngoId, String notes);
+  Future<NgoProfileModel> updateStatus(
+    String ngoId,
+    NgoRegistrationStatus status, {
+    String? notes,
+  });
   void addRegisteredNgo(NgoProfileModel ngo); // For realtime event integration
 }
 
@@ -49,6 +55,21 @@ class MockOfficialNgoRepository implements OfficialNgoRepository {
   }
 
   @override
+  Future<NgoProfileModel> markUnderReview(String ngoId, [String? notes]) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    final index = _ngos.indexWhere((n) => n.id == ngoId);
+    if (index != -1) {
+      _ngos[index] = _ngos[index].copyWith(
+        status: NgoRegistrationStatus.underReview,
+        reviewedAt: DateTime.now(),
+        reviewNotes: notes ?? 'Under review by State Reviewing Authority.',
+      );
+      return _ngos[index];
+    }
+    throw Exception('NGO not found');
+  }
+
+  @override
   Future<NgoProfileModel> requestCorrection(String ngoId, String notes) async {
     await Future.delayed(const Duration(milliseconds: 400));
     final index = _ngos.indexWhere((n) => n.id == ngoId);
@@ -57,6 +78,32 @@ class MockOfficialNgoRepository implements OfficialNgoRepository {
         status: NgoRegistrationStatus.correctionRequired,
         correctionNotes: notes,
         reviewedAt: DateTime.now(),
+      );
+      return _ngos[index];
+    }
+    throw Exception('NGO not found');
+  }
+
+  @override
+  Future<NgoProfileModel> updateStatus(
+    String ngoId,
+    NgoRegistrationStatus status, {
+    String? notes,
+  }) async {
+    if (status == NgoRegistrationStatus.approved) {
+      return approveRegistration(ngoId);
+    } else if (status == NgoRegistrationStatus.underReview) {
+      return markUnderReview(ngoId, notes);
+    } else if (status == NgoRegistrationStatus.correctionRequired) {
+      return requestCorrection(ngoId, notes ?? 'Correction required.');
+    }
+
+    final index = _ngos.indexWhere((n) => n.id == ngoId);
+    if (index != -1) {
+      _ngos[index] = _ngos[index].copyWith(
+        status: status,
+        reviewedAt: DateTime.now(),
+        reviewNotes: notes,
       );
       return _ngos[index];
     }
@@ -99,10 +146,35 @@ class ApiOfficialNgoRepository implements OfficialNgoRepository {
   }
 
   @override
+  Future<NgoProfileModel> markUnderReview(String ngoId, [String? notes]) async {
+    final response = await apiClient.post(
+      '${ApiEndpoints.officialNgos}/$ngoId/under-review',
+      data: notes != null ? {'notes': notes} : null,
+    );
+    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
   Future<NgoProfileModel> requestCorrection(String ngoId, String notes) async {
     final response = await apiClient.post(
       '${ApiEndpoints.officialNgos}/$ngoId/correction',
       data: {'notes': notes},
+    );
+    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<NgoProfileModel> updateStatus(
+    String ngoId,
+    NgoRegistrationStatus status, {
+    String? notes,
+  }) async {
+    final response = await apiClient.post(
+      '${ApiEndpoints.officialNgos}/$ngoId/status',
+      data: {
+        'status': status.name,
+        if (notes != null) 'notes': notes,
+      },
     );
     return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
   }

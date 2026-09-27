@@ -10,6 +10,7 @@ from app.schemas.ngo import (
     NgoApprovePayload,
     NgoCorrectionPayload,
     NgoProfilePayload,
+    NgoStatusUpdatePayload,
 )
 from app.services.realtime import realtime_manager
 
@@ -365,3 +366,65 @@ async def request_ngo_correction(
     # Broadcast realtime status change
     await realtime_manager.broadcast("NGO_REGISTRATION_STATUS_CHANGED", result)
     return result
+
+
+@router.post("/api/v1/official/ngos/{ngo_id}/under-review")
+async def mark_ngo_under_review(
+    ngo_id: str,
+    payload: Optional[NgoApprovePayload] = None,
+    db: Session = Depends(get_db),
+):
+    """Official action: mark NGO registration as under review."""
+    ngo = db.query(NGO).filter(NGO.id == ngo_id).first()
+    if not ngo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"NGO with ID '{ngo_id}' not found.",
+        )
+
+    ngo.status = "underReview"
+    ngo.reviewed_at = datetime.now(timezone.utc)
+    ngo.review_notes = payload.notes if (payload and payload.notes) else "Under review by State Reviewing Authority."
+    db.commit()
+    db.refresh(ngo)
+
+    result = ngo.to_dict()
+    await realtime_manager.broadcast("NGO_REGISTRATION_STATUS_CHANGED", result)
+    return result
+
+
+@router.post("/api/v1/official/ngos/{ngo_id}/status")
+async def update_ngo_status(
+    ngo_id: str,
+    payload: NgoStatusUpdatePayload,
+    db: Session = Depends(get_db),
+):
+    """Official action: update NGO registration status to approved, underReview, or correctionRequired."""
+    ngo = db.query(NGO).filter(NGO.id == ngo_id).first()
+    if not ngo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"NGO with ID '{ngo_id}' not found.",
+        )
+
+    valid_statuses = ["incomplete", "submitted", "underReview", "approved", "correctionRequired"]
+    norm_status = payload.status
+    for s in valid_statuses:
+        if s.lower() == norm_status.lower():
+            norm_status = s
+            break
+
+    ngo.status = norm_status
+    ngo.reviewed_at = datetime.now(timezone.utc)
+    if norm_status == "correctionRequired":
+        ngo.correction_notes = payload.notes or "Correction requested by Directorate Official."
+    else:
+        ngo.review_notes = payload.notes or f"Marked as {norm_status} by Directorate Official."
+
+    db.commit()
+    db.refresh(ngo)
+
+    result = ngo.to_dict()
+    await realtime_manager.broadcast("NGO_REGISTRATION_STATUS_CHANGED", result)
+    return result
+

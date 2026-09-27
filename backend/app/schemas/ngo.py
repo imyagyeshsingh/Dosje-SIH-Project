@@ -30,3 +30,8 @@ class NgoCorrectionPayload(BaseModel):
 
 class NgoApprovePayload(BaseModel):
     notes: Optional[str] = "Approved by State Reviewing Authority."
+
+
+class NgoStatusUpdatePayload(BaseModel):
+    status: str
+    notes: Optional[str] = None

@@ -59,6 +59,36 @@ class _NgoRegistrationReviewScreenState
     }
   }
 
+  Future<void> _markUnderReview() async {
+    setState(() => _isProcessing = true);
+    try {
+      final notes = _notesController.text.trim();
+      final repo = ref.read(officialNgoRepositoryProvider);
+      await repo.markUnderReview(
+        widget.ngoId,
+        notes.isNotEmpty ? notes : 'Under review by State Reviewing Authority.',
+      );
+      ref.invalidate(allNgosProvider);
+      ref.invalidate(ngoDetailProvider(widget.ngoId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('NGO Application marked as Under Review.'),
+            backgroundColor: AppColors.saffron,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _requestCorrection() async {
     final notes = _notesController.text.trim();
     if (notes.isEmpty) {
@@ -188,6 +218,14 @@ class _NgoRegistrationReviewScreenState
                   icon: Icons.check_circle,
                   isLoading: _isProcessing,
                   onPressed: _approve,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                CivicButton(
+                  label: 'Mark Under Review',
+                  icon: Icons.pending_actions_rounded,
+                  type: ButtonType.secondary,
+                  isLoading: _isProcessing,
+                  onPressed: _markUnderReview,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 CivicButton(

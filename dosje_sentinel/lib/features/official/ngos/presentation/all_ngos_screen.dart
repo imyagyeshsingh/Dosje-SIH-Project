@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/typography.dart';
 import '../../../../app/theme/spacing.dart';
+import '../../../../shared/models/ngo_profile_model.dart';
 import '../../../../shared/models/ngo_registration_status.dart';
 import '../../../../shared/models/permission.dart';
 import '../../../../shared/providers/core_providers.dart';
@@ -25,6 +26,178 @@ class AllNgosScreen extends ConsumerStatefulWidget {
 class _AllNgosScreenState extends ConsumerState<AllNgosScreen> {
   String _searchQuery = '';
   NgoRegistrationStatus? _filterStatus;
+  String? _processingNgoId;
+
+  Future<void> _handleApprove(NgoProfileModel ngo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.check_circle, color: AppColors.success, size: 24),
+            SizedBox(width: 8),
+            Text('Approve Registration'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to approve and sanction "${ngo.ngoName}" (Reg: ${ngo.registrationNumber})?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Approve NGO'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _processingNgoId = ngo.id);
+      try {
+        await ref
+            .read(allNgosProvider.notifier)
+            .updateNgoStatus(ngo.id, NgoRegistrationStatus.approved);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${ngo.ngoName} marked as APPROVED.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to approve NGO: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _processingNgoId = null);
+      }
+    }
+  }
+
+  Future<void> _handleMarkUnderReview(NgoProfileModel ngo) async {
+    setState(() => _processingNgoId = ngo.id);
+    try {
+      await ref
+          .read(allNgosProvider.notifier)
+          .updateNgoStatus(ngo.id, NgoRegistrationStatus.underReview);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${ngo.ngoName} marked as UNDER REVIEW.'),
+            backgroundColor: AppColors.saffron,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processingNgoId = null);
+    }
+  }
+
+  Future<void> _handleRequestCorrection(NgoProfileModel ngo) async {
+    final controller = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.edit_note, color: AppColors.error, size: 24),
+            SizedBox(width: 8),
+            Text('Flag Correction Needed'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Specify required amendments or missing documents for "${ngo.ngoName}":',
+              style: AppTypography.bodySm,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Upload clear copy of PAN Card, renewed Darpan registration...',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (controller.text.trim().isEmpty) return;
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Submit Correction Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (submitted == true) {
+      setState(() => _processingNgoId = ngo.id);
+      try {
+        await ref
+            .read(allNgosProvider.notifier)
+            .updateNgoStatus(
+              ngo.id,
+              NgoRegistrationStatus.correctionRequired,
+              notes: controller.text.trim(),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${ngo.ngoName} flagged for CORRECTION.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update status: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _processingNgoId = null);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -262,6 +435,92 @@ class _AllNgosScreenState extends ConsumerState<AllNgosScreen> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
+                            const Divider(height: 1, thickness: 0.5),
+                            const SizedBox(height: 8),
+
+                            // Official Status Action Buttons (Approve / Under Review / Correction Needed)
+                            if (_processingNgoId == ngo.id)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: Center(
+                                  child: SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                                        minimumSize: const Size(0, 32),
+                                        side: BorderSide(
+                                          color: ngo.status == NgoRegistrationStatus.approved
+                                              ? AppColors.success
+                                              : AppColors.outlineVariant,
+                                          width: ngo.status == NgoRegistrationStatus.approved ? 1.5 : 1,
+                                        ),
+                                        backgroundColor: ngo.status == NgoRegistrationStatus.approved
+                                            ? AppColors.successBg
+                                            : Colors.transparent,
+                                        foregroundColor: AppColors.success,
+                                      ),
+                                      icon: const Icon(Icons.check_circle_outline, size: 14),
+                                      label: const Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _handleApprove(ngo),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                                        minimumSize: const Size(0, 32),
+                                        side: BorderSide(
+                                          color: ngo.status == NgoRegistrationStatus.underReview
+                                              ? AppColors.saffron
+                                              : AppColors.outlineVariant,
+                                          width: ngo.status == NgoRegistrationStatus.underReview ? 1.5 : 1,
+                                        ),
+                                        backgroundColor: ngo.status == NgoRegistrationStatus.underReview
+                                            ? AppColors.warningBg
+                                            : Colors.transparent,
+                                        foregroundColor: AppColors.saffron,
+                                      ),
+                                      icon: const Icon(Icons.pending_actions_outlined, size: 14),
+                                      label: const Text('Review', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _handleMarkUnderReview(ngo),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                                        minimumSize: const Size(0, 32),
+                                        side: BorderSide(
+                                          color: ngo.status == NgoRegistrationStatus.correctionRequired
+                                              ? AppColors.error
+                                              : AppColors.outlineVariant,
+                                          width: ngo.status == NgoRegistrationStatus.correctionRequired ? 1.5 : 1,
+                                        ),
+                                        backgroundColor: ngo.status == NgoRegistrationStatus.correctionRequired
+                                            ? AppColors.errorBg
+                                            : Colors.transparent,
+                                        foregroundColor: AppColors.error,
+                                      ),
+                                      icon: const Icon(Icons.edit_note_outlined, size: 14),
+                                      label: const Text('Correction', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _handleRequestCorrection(ngo),
+                                    ),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
                       );
