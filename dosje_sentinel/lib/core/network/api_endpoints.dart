@@ -9,7 +9,7 @@ class ApiEndpoints {
 
     // For Android physical phone and emulators connecting to host backend:
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.133.165.136:8000';
+      return 'http://10.47.11.97:8000';
     }
 
     if (kReleaseMode) {

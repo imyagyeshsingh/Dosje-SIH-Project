@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../error/app_exception.dart';
 import 'api_endpoints.dart';
@@ -34,7 +35,35 @@ class ApiClient {
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
+          // Automatic host fallback on Android between LAN Wi-Fi IP and 10.0.2.2 emulator loopback
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+            final isConnectionIssue = e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.connectionTimeout;
+            if (isConnectionIssue) {
+              final currentBase = _dio.options.baseUrl;
+              String? altBase;
+              if (currentBase.contains('10.47.11.97')) {
+                altBase = currentBase.replaceAll('10.47.11.97', '10.0.2.2');
+              } else if (currentBase.contains('10.0.2.2')) {
+                altBase = currentBase.replaceAll('10.0.2.2', '10.47.11.97');
+              }
+
+              if (altBase != null && altBase != currentBase) {
+                try {
+                  _dio.options.baseUrl = altBase;
+                  ApiEndpoints.setBaseUrl(altBase);
+                  final retryOptions = e.requestOptions;
+                  retryOptions.baseUrl = altBase;
+                  final response = await _dio.fetch(retryOptions);
+                  return handler.resolve(response);
+                } catch (_) {
+                  // Fall back through
+                }
+              }
+            }
+          }
+
           final exception = _handleDioError(e);
           return handler.reject(
             DioException(

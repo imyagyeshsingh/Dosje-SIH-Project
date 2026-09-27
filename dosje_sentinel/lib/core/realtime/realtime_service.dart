@@ -69,8 +69,35 @@ class DefaultRealtimeService implements RealtimeService {
     try {
       debugPrint('[Realtime] Connecting to WebSocket: $wsUrl');
       _socket = await WebSocket.connect(wsUrl).timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 4),
       );
+    } catch (primaryErr) {
+      if (wsUrl.contains('10.47.11.97') || wsUrl.contains('10.0.2.2')) {
+        final altWsUrl = wsUrl.contains('10.47.11.97')
+            ? wsUrl.replaceAll('10.47.11.97', '10.0.2.2')
+            : wsUrl.replaceAll('10.0.2.2', '10.47.11.97');
+        try {
+          debugPrint('[Realtime] Primary WS failed, trying fallback: $altWsUrl');
+          _socket = await WebSocket.connect(altWsUrl).timeout(
+            const Duration(seconds: 4),
+          );
+        } catch (_) {
+          _isConnecting = false;
+          _isConnected = false;
+          debugPrint('[Realtime] Connection failed (running in offline/local mode): $primaryErr');
+          _scheduleReconnect();
+          return;
+        }
+      } else {
+        _isConnecting = false;
+        _isConnected = false;
+        debugPrint('[Realtime] Connection failed (running in offline/local mode): $primaryErr');
+        _scheduleReconnect();
+        return;
+      }
+    }
+
+    try {
       _isConnected = true;
       _isConnecting = false;
       debugPrint('[Realtime] WebSocket connected successfully');
@@ -109,7 +136,7 @@ class DefaultRealtimeService implements RealtimeService {
     } catch (e) {
       _isConnecting = false;
       _isConnected = false;
-      debugPrint('[Realtime] Connection failed (running in offline/local mode): $e');
+      debugPrint('[Realtime] Socket listener setup error: $e');
       _scheduleReconnect();
     }
   }
