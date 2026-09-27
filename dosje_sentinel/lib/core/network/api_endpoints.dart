@@ -7,16 +7,8 @@ class ApiEndpoints {
     const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return envUrl;
 
-    // For Android physical phone and emulators connecting to host backend:
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.47.11.97:8000';
-    }
-
-    if (kReleaseMode) {
-      return 'https://api.dosje-sentinel.gov.in';
-    }
-
-    return 'http://127.0.0.1:8000';
+    // Public HTTPS tunnel accessible from any phone on cellular (4G/5G) or any Wi-Fi
+    return 'https://satin-species-kilometer.ngrok-free.dev';
   }
 
   static String _customBaseUrl = _resolveDefaultBaseUrl();

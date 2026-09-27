@@ -15,11 +15,12 @@ class ApiClient {
         Dio(
           BaseOptions(
             baseUrl: ApiEndpoints.baseUrl,
-            connectTimeout: const Duration(seconds: 120),
-            receiveTimeout: const Duration(seconds: 120),
+            connectTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 10),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
             },
           ),
         );
@@ -36,17 +37,19 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
-          // Automatic host fallback on Android between LAN Wi-Fi IP and 10.0.2.2 emulator loopback
+          // Automatic host fallback between public HTTPS and local LAN/emulator
           if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
             final isConnectionIssue = e.type == DioExceptionType.connectionError ||
                 e.type == DioExceptionType.connectionTimeout;
             if (isConnectionIssue) {
               final currentBase = _dio.options.baseUrl;
               String? altBase;
-              if (currentBase.contains('10.47.11.97')) {
-                altBase = currentBase.replaceAll('10.47.11.97', '10.0.2.2');
+              if (currentBase.contains('ngrok-free.dev')) {
+                altBase = 'http://10.47.11.97:8000';
+              } else if (currentBase.contains('10.47.11.97')) {
+                altBase = 'http://10.0.2.2:8000';
               } else if (currentBase.contains('10.0.2.2')) {
-                altBase = currentBase.replaceAll('10.0.2.2', '10.47.11.97');
+                altBase = 'https://satin-species-kilometer.ngrok-free.dev';
               }
 
               if (altBase != null && altBase != currentBase) {

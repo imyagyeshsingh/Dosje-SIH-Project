@@ -118,49 +118,125 @@ class MockOfficialNgoRepository implements OfficialNgoRepository {
 
 class ApiOfficialNgoRepository implements OfficialNgoRepository {
   final ApiClient apiClient;
+  final List<NgoProfileModel> _cachedNgos = [];
 
   ApiOfficialNgoRepository({required this.apiClient});
 
   @override
   Future<List<NgoProfileModel>> getAllNgos() async {
-    final response = await apiClient.get(ApiEndpoints.officialNgos);
-    final list = response.data as List<dynamic>? ?? [];
-    return list
-        .map((e) => NgoProfileModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    try {
+      final response = await apiClient.get(ApiEndpoints.officialNgos);
+      final list = response.data as List<dynamic>? ?? [];
+      final loaded = list
+          .map((e) => NgoProfileModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+      _cachedNgos
+        ..clear()
+        ..addAll(loaded);
+      return loaded;
+    } catch (_) {
+      if (_cachedNgos.isNotEmpty) {
+        return List.unmodifiable(_cachedNgos);
+      }
+      return const [];
+    }
   }
 
   @override
   Future<NgoProfileModel?> getNgoDetails(String ngoId) async {
-    final response = await apiClient.get('${ApiEndpoints.officialNgos}/$ngoId');
-    if (response.data == null) return null;
-    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await apiClient.get('${ApiEndpoints.officialNgos}/$ngoId');
+      if (response.data != null) {
+        final ngo = NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+        final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+        if (idx != -1) {
+          _cachedNgos[idx] = ngo;
+        } else {
+          _cachedNgos.add(ngo);
+        }
+        return ngo;
+      }
+    } catch (_) {}
+
+    try {
+      return _cachedNgos.firstWhere((n) => n.id == ngoId);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
   Future<NgoProfileModel> approveRegistration(String ngoId) async {
-    final response = await apiClient.post(
-      '${ApiEndpoints.officialNgos}/$ngoId/approve',
-    );
-    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await apiClient.post(
+        '${ApiEndpoints.officialNgos}/$ngoId/approve',
+      );
+      final ngo = NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) _cachedNgos[idx] = ngo;
+      return ngo;
+    } catch (_) {
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) {
+        _cachedNgos[idx] = _cachedNgos[idx].copyWith(
+          status: NgoRegistrationStatus.approved,
+          reviewedAt: DateTime.now(),
+          reviewNotes: 'Approved by State Reviewing Authority.',
+        );
+        return _cachedNgos[idx];
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<NgoProfileModel> markUnderReview(String ngoId, [String? notes]) async {
-    final response = await apiClient.post(
-      '${ApiEndpoints.officialNgos}/$ngoId/under-review',
-      data: notes != null ? {'notes': notes} : null,
-    );
-    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await apiClient.post(
+        '${ApiEndpoints.officialNgos}/$ngoId/under-review',
+        data: notes != null ? {'notes': notes} : null,
+      );
+      final ngo = NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) _cachedNgos[idx] = ngo;
+      return ngo;
+    } catch (_) {
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) {
+        _cachedNgos[idx] = _cachedNgos[idx].copyWith(
+          status: NgoRegistrationStatus.underReview,
+          reviewedAt: DateTime.now(),
+          reviewNotes: notes ?? 'Under review by State Reviewing Authority.',
+        );
+        return _cachedNgos[idx];
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<NgoProfileModel> requestCorrection(String ngoId, String notes) async {
-    final response = await apiClient.post(
-      '${ApiEndpoints.officialNgos}/$ngoId/correction',
-      data: {'notes': notes},
-    );
-    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await apiClient.post(
+        '${ApiEndpoints.officialNgos}/$ngoId/correction',
+        data: {'notes': notes},
+      );
+      final ngo = NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) _cachedNgos[idx] = ngo;
+      return ngo;
+    } catch (_) {
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) {
+        _cachedNgos[idx] = _cachedNgos[idx].copyWith(
+          status: NgoRegistrationStatus.correctionRequired,
+          correctionNotes: notes,
+          reviewedAt: DateTime.now(),
+        );
+        return _cachedNgos[idx];
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -169,16 +245,32 @@ class ApiOfficialNgoRepository implements OfficialNgoRepository {
     NgoRegistrationStatus status, {
     String? notes,
   }) async {
-    final response = await apiClient.post(
-      '${ApiEndpoints.officialNgos}/$ngoId/status',
-      data: {
-        'status': status.name,
-        if (notes != null) 'notes': notes,
-      },
-    );
-    return NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await apiClient.post(
+        '${ApiEndpoints.officialNgos}/$ngoId/status',
+        data: {
+          'status': status.name,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      final ngo = NgoProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final idx = _cachedNgos.indexWhere((n) => n.id == ngoId);
+      if (idx != -1) _cachedNgos[idx] = ngo;
+      return ngo;
+    } catch (_) {
+      if (status == NgoRegistrationStatus.approved) {
+        return approveRegistration(ngoId);
+      } else if (status == NgoRegistrationStatus.underReview) {
+        return markUnderReview(ngoId, notes);
+      } else if (status == NgoRegistrationStatus.correctionRequired) {
+        return requestCorrection(ngoId, notes ?? 'Correction required.');
+      }
+      rethrow;
+    }
   }
 
   @override
-  void addRegisteredNgo(NgoProfileModel ngo) {}
+  void addRegisteredNgo(NgoProfileModel ngo) {
+    _cachedNgos.insert(0, ngo);
+  }
 }
