@@ -50,14 +50,18 @@ class DefaultAuthService implements AuthService {
   DefaultAuthService({required this.apiClient});
 
   Dio _createClerkDio() {
+    // Clerk's native frontend API does NOT use the publishable key as a Bearer token.
+    // The initial sign_in/sign_up POST requests are unauthenticated — Clerk issues
+    // a __client_uat cookie and a client JWT in the response body that we then reuse.
     return Dio(
       BaseOptions(
         baseUrl: ApiEndpoints.clerkFrontendApi,
-        connectTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
         headers: {
-          'Authorization': 'Bearer ${ApiEndpoints.clerkPublishableKey}',
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Clerk-Frontend-Api': ApiEndpoints.clerkFrontendApi,
+          'x-publishable-key': ApiEndpoints.clerkPublishableKey,
         },
         validateStatus: (_) => true,
       ),
@@ -74,32 +78,53 @@ class DefaultAuthService implements AuthService {
     _clerkSessionEmail = null;
 
     // 1. Direct Native Clerk Cloud OTP Dispatch (Global cloud, works on every phone and connection)
+    // Clerk's frontend API uses x-publishable-key header (not Bearer token) for native flows.
+    // The client token is returned inside the response JSON body, not in the Authorization header.
     try {
       final clerkDio = _createClerkDio();
+
+      // Helper to extract client token from Clerk response body
+      String? extractClerkClientToken(Response res) {
+        if (res.data is Map) {
+          final d = res.data as Map<String, dynamic>;
+          // Clerk returns client JWT as __client cookie in set-cookie header.
+          final cookieHeader = res.headers.value('set-cookie') ?? '';
+          final sessionMatch = RegExp(r'__client=([^;]+)').firstMatch(cookieHeader);
+          if (sessionMatch != null) return sessionMatch.group(1);
+          // Fallback: use the resource id as a flow tracker
+          final resp = d['response'] as Map<String, dynamic>? ?? {};
+          return resp['id']?.toString();
+        }
+        return null;
+      }
+
       final signInRes = await clerkDio.post(
-        '/v1/client/sign_ins?_is_native=1',
-        data: {'identifier': cleanEmail},
+        '/v1/client/sign_ins',
+        data: 'identifier=${Uri.encodeComponent(cleanEmail)}',
       );
 
       if (signInRes.statusCode == 200 && signInRes.data is Map) {
         final data = signInRes.data as Map<String, dynamic>;
         final resp = data['response'] as Map<String, dynamic>? ?? {};
         final siaId = resp['id']?.toString();
-        final clientToken = signInRes.headers.value('authorization');
         final factors = (resp['supported_first_factors'] as List<dynamic>? ?? []);
         final emailFactor = factors.firstWhere(
           (f) => f is Map && f['strategy'] == 'email_code',
           orElse: () => null,
         );
+        final clientToken = extractClerkClientToken(signInRes) ?? siaId;
 
-        if (siaId != null && clientToken != null && emailFactor != null) {
+        if (siaId != null && emailFactor != null) {
+          final emailAddressId = (emailFactor as Map)['email_address_id']?.toString() ?? '';
           final prepRes = await clerkDio.post(
-            '/v1/client/sign_ins/$siaId/prepare_first_factor?_is_native=1',
-            data: {
-              'strategy': 'email_code',
-              'email_address_id': emailFactor['email_address_id'],
-            },
-            options: Options(headers: {'Authorization': 'Bearer $clientToken'}),
+            '/v1/client/sign_ins/$siaId/prepare_first_factor',
+            data: 'strategy=email_code&email_address_id=${Uri.encodeComponent(emailAddressId)}',
+            options: Options(
+              headers: {
+                if (signInRes.headers.value('set-cookie') != null)
+                  'Cookie': signInRes.headers.value('set-cookie')!,
+              },
+            ),
           );
 
           if (prepRes.statusCode == 200) {
@@ -109,23 +134,28 @@ class DefaultAuthService implements AuthService {
           }
         }
       } else if (signInRes.statusCode == 422) {
-        // User not yet registered in Clerk -> initiate sign_up attempt
+        // User not yet registered in Clerk -> initiate sign_up to send email verification
         final signUpRes = await clerkDio.post(
-          '/v1/client/sign_ups?_is_native=1',
-          data: {'email_address': cleanEmail},
+          '/v1/client/sign_ups',
+          data: 'email_address=${Uri.encodeComponent(cleanEmail)}',
         );
 
         if (signUpRes.statusCode == 200 && signUpRes.data is Map) {
           final data = signUpRes.data as Map<String, dynamic>;
           final resp = data['response'] as Map<String, dynamic>? ?? {};
           final suaId = resp['id']?.toString();
-          final clientToken = signUpRes.headers.value('authorization');
+          final clientToken = extractClerkClientToken(signUpRes) ?? suaId;
 
-          if (suaId != null && clientToken != null) {
+          if (suaId != null) {
             final prepRes = await clerkDio.post(
-              '/v1/client/sign_ups/$suaId/prepare_verification?_is_native=1',
-              data: {'strategy': 'email_code'},
-              options: Options(headers: {'Authorization': 'Bearer $clientToken'}),
+              '/v1/client/sign_ups/$suaId/prepare_verification',
+              data: 'strategy=email_code',
+              options: Options(
+                headers: {
+                  if (signUpRes.headers.value('set-cookie') != null)
+                    'Cookie': signUpRes.headers.value('set-cookie')!,
+                },
+              ),
             );
 
             if (prepRes.statusCode == 200) {
@@ -136,8 +166,8 @@ class DefaultAuthService implements AuthService {
           }
         }
       }
-    } catch (_) {
-      // Non-blocking: proceed to backend
+    } catch (e) {
+      // Clerk cloud unreachable — fall through to backend
     }
 
     // 2. Also send to FastAPI backend if reachable (fast 3-second timeout)
@@ -194,23 +224,20 @@ class DefaultAuthService implements AuthService {
     }
 
     // 2. Direct Clerk Cloud Verification (Global cloud, works on every network)
-    if (_clerkClientToken != null &&
-        (_clerkSiaId != null || _clerkSuaId != null) &&
+    if ((_clerkSiaId != null || _clerkSuaId != null) &&
         _clerkSessionEmail?.toLowerCase() == cleanEmail.toLowerCase()) {
       final clerkDio = _createClerkDio();
       Response attemptRes;
 
       if (_clerkSiaId != null) {
         attemptRes = await clerkDio.post(
-          '/v1/client/sign_ins/$_clerkSiaId/attempt_first_factor?_is_native=1',
-          data: {'strategy': 'email_code', 'code': cleanOtp},
-          options: Options(headers: {'Authorization': 'Bearer $_clerkClientToken'}),
+          '/v1/client/sign_ins/$_clerkSiaId/attempt_first_factor',
+          data: 'strategy=email_code&code=${Uri.encodeComponent(cleanOtp)}',
         );
       } else {
         attemptRes = await clerkDio.post(
-          '/v1/client/sign_ups/$_clerkSuaId/attempt_verification?_is_native=1',
-          data: {'strategy': 'email_code', 'code': cleanOtp},
-          options: Options(headers: {'Authorization': 'Bearer $_clerkClientToken'}),
+          '/v1/client/sign_ups/$_clerkSuaId/attempt_verification',
+          data: 'strategy=email_code&code=${Uri.encodeComponent(cleanOtp)}',
         );
       }
 
@@ -235,8 +262,8 @@ class DefaultAuthService implements AuthService {
       }
     }
 
-    // 3. Automated Test / Offline bypass
-    if (cleanOtp == '123456' || (_cachedDevOtp != null && cleanOtp == _cachedDevOtp)) {
+    // 3. Dev-only backend OTP bypass (only when backend explicitly returned a dev_otp)
+    if (_cachedDevOtp != null && cleanOtp == _cachedDevOtp) {
       return _buildAuthoritativeClerkAuthState(
         cleanEmail: cleanEmail,
         clerkSessionId: 'clerk_session_${DateTime.now().millisecondsSinceEpoch}',
@@ -245,6 +272,7 @@ class DefaultAuthService implements AuthService {
       );
     }
 
+    // If neither Clerk nor backend could verify, the OTP is wrong
     throw BadRequestException(
       'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
     );
