@@ -4,6 +4,7 @@ import '../../shared/models/user_model.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/permission.dart';
 import '../../shared/models/ngo_registration_status.dart';
+import '../error/app_exception.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import 'auth_state.dart';
@@ -165,24 +166,11 @@ class DefaultAuthService implements AuthService {
           ngoRegistrationStatus: resolvedStatus,
         );
       }
-    } catch (_) {
-      // Backend offline or error -> fall through to deterministic offline fallback
+      throw BadRequestException('Verification failed. Invalid server response.');
+    } on AppException {
+      // Actively rethrow backend rejection (e.g. 400 Bad Request: incorrect OTP code)
+      rethrow;
     }
-
-    // Fallback: Verify code (accept 123456 or 6 digits in offline mode)
-    final sanitized = cleanEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-    final clerkUserId = 'user_clerk_$sanitized';
-    final token = 'clerk_session_${DateTime.now().millisecondsSinceEpoch}';
-    apiClient.setAuthToken(token);
-    apiClient.setUserEmail(cleanEmail);
-
-    return resolveAuthorization(
-      token,
-      clerkUserId: clerkUserId,
-      email: cleanEmail,
-      status: status,
-      roleHint: roleHint,
-    );
   }
 
   @override

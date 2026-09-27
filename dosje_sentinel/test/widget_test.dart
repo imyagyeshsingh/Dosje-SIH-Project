@@ -7,6 +7,7 @@ import 'package:dosje_sentinel/core/auth/role_guard.dart';
 import 'package:dosje_sentinel/core/auth/permission_guard.dart';
 import 'package:dosje_sentinel/core/auth/auth_service.dart';
 import 'package:dosje_sentinel/core/network/api_client.dart';
+import 'package:dosje_sentinel/core/error/app_exception.dart';
 import 'package:dosje_sentinel/core/realtime/realtime_service.dart';
 import 'package:dosje_sentinel/repositories/ngo_repository.dart';
 import 'package:dosje_sentinel/repositories/official_ngo_repository.dart';
@@ -201,37 +202,27 @@ void main() {
       );
     });
 
-    // TEST 8d: OTP send and verify for Official itsmerudraksha@gmail.com
-    test('TEST 8d: OTP authentication for itsmerudraksha@gmail.com resolves to Official', () async {
+    // TEST 8d: Wrong OTP is rejected with AppException
+    test('TEST 8d: Wrong OTP for Official is strictly rejected', () async {
       final authService = DefaultAuthService(apiClient: ApiClient());
-      final otp = await authService.sendOtp('itsmerudraksha@gmail.com');
-      final authState = await authService.verifyOtp(
-        email: 'itsmerudraksha@gmail.com',
-        otp: otp ?? '123456',
-      );
-
-      expect(authState.isOfficial, isTrue);
-      expect(authState.user?.role, UserRole.official);
       expect(
-        AuthGuard.resolveRedirect('/login', authState),
-        '/official/dashboard',
+        () => authService.verifyOtp(
+          email: 'itsmerudraksha@gmail.com',
+          otp: '000000',
+        ),
+        throwsA(isA<AppException>()),
       );
     });
 
-    // TEST 8e: OTP send and verify for PMU itsmerudraksha1@gmail.com
-    test('TEST 8e: OTP authentication for itsmerudraksha1@gmail.com resolves to PMU Inspector', () async {
+    // TEST 8e: Wrong OTP for PMU is rejected with AppException
+    test('TEST 8e: Wrong OTP for PMU is strictly rejected', () async {
       final authService = DefaultAuthService(apiClient: ApiClient());
-      final otp = await authService.sendOtp('itsmerudraksha1@gmail.com');
-      final authState = await authService.verifyOtp(
-        email: 'itsmerudraksha1@gmail.com',
-        otp: otp ?? '123456',
-      );
-
-      expect(authState.isInspector, isTrue);
-      expect(authState.user?.role, UserRole.inspector);
       expect(
-        AuthGuard.resolveRedirect('/login', authState),
-        '/inspector/dashboard',
+        () => authService.verifyOtp(
+          email: 'itsmerudraksha1@gmail.com',
+          otp: '999999',
+        ),
+        throwsA(isA<AppException>()),
       );
     });
 

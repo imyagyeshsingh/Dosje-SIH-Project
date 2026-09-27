@@ -133,27 +133,47 @@ def test_whitelist_get_all(client: TestClient):
 
 def test_send_and_verify_otp_flow(client: TestClient):
     """Verify complete send OTP -> verify OTP flow."""
-    # 1. Send OTP to itsmerudraksha@gmail.com
-    send_res = client.post(
-        "/api/v1/auth/otp/send",
-        json={"email": "itsmerudraksha@gmail.com"},
-    )
-    assert send_res.status_code == 200
-    send_data = send_res.json()
-    assert send_data["success"] is True
-    assert "dev_otp" in send_data
-    code = send_data["dev_otp"]
+    from unittest.mock import MagicMock, patch
 
-    # 2. Verify with correct code
-    verify_res = client.post(
-        "/api/v1/auth/otp/verify",
-        json={"email": "itsmerudraksha@gmail.com", "otp": code},
-    )
-    assert verify_res.status_code == 200
-    verify_data = verify_res.json()
-    assert verify_data["success"] is True
-    assert verify_data["user"]["role"] == "OFFICIAL"
-    assert verify_data["user"]["email"] == "itsmerudraksha@gmail.com"
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"authorization": "mock_jwt_token"}
+    mock_resp.json.return_value = {
+        "response": {
+            "id": "sia_mock_123",
+            "status": "complete",
+            "created_session_id": "sess_mock_test",
+            "supported_first_factors": [
+                {"strategy": "email_code", "email_address_id": "idn_mock_123"}
+            ],
+        }
+    }
+
+    with patch("app.services.clerk_auth_service.httpx.Client") as mock_http_cls:
+        mock_instance = MagicMock()
+        mock_instance.__enter__.return_value = mock_instance
+        mock_instance.post.return_value = mock_resp
+        mock_http_cls.return_value = mock_instance
+
+        # 1. Send OTP to itsmerudraksha@gmail.com
+        send_res = client.post(
+            "/api/v1/auth/otp/send",
+            json={"email": "itsmerudraksha@gmail.com"},
+        )
+        assert send_res.status_code == 200
+        send_data = send_res.json()
+        assert send_data["success"] is True
+
+        # 2. Verify with code (mocked Clerk returns complete)
+        verify_res = client.post(
+            "/api/v1/auth/otp/verify",
+            json={"email": "itsmerudraksha@gmail.com", "otp": "654321"},
+        )
+        assert verify_res.status_code == 200
+        verify_data = verify_res.json()
+        assert verify_data["success"] is True
+        assert verify_data["user"]["role"] == "OFFICIAL"
+        assert verify_data["user"]["email"] == "itsmerudraksha@gmail.com"
 
 
 def test_verify_otp_invalid_code(client: TestClient):

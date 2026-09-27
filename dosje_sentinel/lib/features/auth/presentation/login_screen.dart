@@ -7,6 +7,7 @@ import '../../../app/theme/colors.dart';
 import '../../../app/theme/typography.dart';
 import '../../../app/theme/spacing.dart';
 import '../../../core/auth/auth_guard.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../shared/models/ngo_registration_status.dart';
 import '../../../shared/models/user_role.dart';
 import '../../../shared/providers/core_providers.dart';
@@ -143,9 +144,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String message = e.toString();
+        if (e is AppException) {
+          message = e.message;
+        } else if (message.startsWith('Exception: ')) {
+          message = message.substring(11);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Verification failed: $e'),
+            content: Text(message),
             backgroundColor: AppColors.error,
           ),
         );

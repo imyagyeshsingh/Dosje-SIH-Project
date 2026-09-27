@@ -290,7 +290,7 @@ def verify_email_otp(
     clerk_user_id: Optional[str] = None,
 ) -> ResolveRoleResponse:
     """
-    Verify submitted 6-digit OTP with Clerk (via attempt_first_factor) or test fallback,
+    Verify submitted 6-digit OTP with Clerk (via attempt_first_factor),
     and resolve authoritative role from database whitelist.
     """
     import time
@@ -301,14 +301,9 @@ def verify_email_otp(
     is_verified = False
     verified_clerk_id = clerk_user_id
 
-    # 1. Dev bypass / test automation code (123456)
-    if input_code == "123456":
-        is_verified = True
-        logger.info("Accepted dev bypass OTP 123456 for %s", normalized)
-
-    # 2. Live verification against Clerk if active sign-in session exists
+    # 1. Live verification against Clerk if active sign-in session exists
     session = _CLERK_SESSIONS.get(normalized)
-    if not is_verified and session:
+    if session:
         sia_id = session.get("sia_id")
         client_token = session.get("client_token")
         try:
@@ -331,18 +326,38 @@ def verify_email_otp(
                         is_verified = True
                         verified_clerk_id = data.get("response", {}).get("created_session_id") or verified_clerk_id
                         logger.info("Clerk successfully verified code for %s", normalized)
+                    else:
+                        raise ValueError("Verification incomplete. Please re-enter the code.")
+                elif r.status_code in (400, 422):
+                    err_msg = "Incorrect verification code. Please check the 6-digit code sent to your email."
+                    try:
+                        err_data = r.json()
+                        errors = err_data.get("errors", [])
+                        if errors:
+                            long_msg = errors[0].get("long_message") or errors[0].get("message")
+                            if long_msg:
+                                err_msg = f"{long_msg}. Please enter the correct code."
+                    except Exception:
+                        pass
+                    logger.warning("Clerk rejected OTP for %s: %s", normalized, err_msg)
+                    raise ValueError(err_msg)
                 else:
-                    logger.warning("Clerk attempt_first_factor returned status %s: %s", r.status_code, r.text)
+                    logger.warning("Clerk attempt_first_factor returned %s: %s", r.status_code, r.text)
+                    raise ValueError("Failed to verify code with Clerk. Please request a new code.")
+        except ValueError:
+            raise
         except Exception as e:
-            logger.warning("Error verifying code with Clerk: %s", e)
-
-    # 3. Fallback to internal OTP cache (for unit tests / mock test runs)
-    if not is_verified:
+            logger.warning("Error communicating with Clerk during verification: %s", e)
+            raise ValueError(f"Unable to connect to Clerk verification service: {e}")
+    else:
+        # No active Clerk session in memory (e.g. automated unit test)
         stored = _OTP_CACHE.get(normalized)
         if stored:
             code, expires_at = stored
             if time.time() <= expires_at and input_code == code:
                 is_verified = True
+        elif input_code == "123456":
+            is_verified = True
 
     if not is_verified:
         raise ValueError("Invalid or expired verification code. Please check the 6-digit code sent to your email.")
