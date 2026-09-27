@@ -12,25 +12,9 @@ abstract class NgoRepository {
 }
 
 class MockNgoRepository implements NgoRepository {
-  NgoProfileModel _profile = const NgoProfileModel(
-    id: 'ngo_8821',
-    fullName: 'Shri Rajesh Sharma',
-    designation: 'Authorized Project Director',
-    mobileNumber: '+91 98712 34567',
-    email: 'rep.officer@samarpan-ngo.org',
-    ngoName: 'Samarpan Welfare Society',
-    organizationType: 'Registered Society',
-    registrationNumber: 'NGO-UP-8821',
-    establishmentYear: 2018,
-    contactNumber: '+91 562 2891000',
-    officialEmail: 'info@samarpan-ngo.org',
-    address: 'Plot 14, Sanjay Place',
-    state: 'Uttar Pradesh',
-    district: 'Agra',
-    city: 'Agra',
-    pinCode: '282002',
-    status: NgoRegistrationStatus.approved,
-  );
+  NgoProfileModel? _profile;
+
+  MockNgoRepository({NgoProfileModel? initialProfile}) : _profile = initialProfile;
 
   @override
   Future<NgoProfileModel?> getMyProfile() async {
@@ -41,7 +25,7 @@ class MockNgoRepository implements NgoRepository {
   @override
   Future<NgoRegistrationStatus> getRegistrationStatus() async {
     await Future.delayed(const Duration(milliseconds: 200));
-    return _profile.status;
+    return _profile?.status ?? NgoRegistrationStatus.incomplete;
   }
 
   @override
@@ -51,24 +35,43 @@ class MockNgoRepository implements NgoRepository {
       id: 'ngo_${DateTime.now().millisecondsSinceEpoch}',
       status: NgoRegistrationStatus.incomplete,
     );
-    return _profile;
+    return _profile!;
   }
 
   @override
   Future<NgoProfileModel> updateProfile(NgoProfileModel profile) async {
     await Future.delayed(const Duration(milliseconds: 400));
     _profile = profile;
-    return _profile;
+    return _profile!;
   }
 
   @override
   Future<NgoProfileModel> submitRegistration(String ngoId) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    _profile = _profile.copyWith(
+    _profile = (_profile ??
+        NgoProfileModel(
+          id: ngoId,
+          fullName: '',
+          designation: '',
+          mobileNumber: '',
+          email: '',
+          ngoName: '',
+          organizationType: '',
+          registrationNumber: '',
+          establishmentYear: 2026,
+          contactNumber: '',
+          officialEmail: '',
+          address: '',
+          state: '',
+          district: '',
+          city: '',
+          pinCode: '',
+          status: NgoRegistrationStatus.submitted,
+        )).copyWith(
       status: NgoRegistrationStatus.submitted,
       submittedAt: DateTime.now(),
     );
-    return _profile;
+    return _profile!;
   }
 }
 

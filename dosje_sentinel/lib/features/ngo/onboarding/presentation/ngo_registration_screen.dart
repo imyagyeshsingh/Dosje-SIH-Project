@@ -9,6 +9,7 @@ import '../../../../shared/models/ngo_profile_model.dart';
 import '../../../../shared/widgets/civic_app_bar.dart';
 import '../../../../shared/widgets/civic_card.dart';
 import '../../../../shared/widgets/civic_button.dart';
+import '../../../../shared/providers/core_providers.dart';
 import '../providers/ngo_registration_provider.dart';
 
 class NgoRegistrationScreen extends ConsumerStatefulWidget {
@@ -22,38 +23,37 @@ class NgoRegistrationScreen extends ConsumerStatefulWidget {
 class _NgoRegistrationScreenState extends ConsumerState<NgoRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Representative Controllers (prefilled from Clerk)
-  final _nameController = TextEditingController(text: 'Shri Rajesh Sharma');
-  final _designationController = TextEditingController(
-    text: 'Authorized Project Director',
-  );
-  final _mobileController = TextEditingController(text: '+91 98712 34567');
-  final _emailController = TextEditingController(
-    text: 'rep.officer@samarpan-ngo.org',
-  );
+  // Representative Controllers
+  final _nameController = TextEditingController();
+  final _designationController = TextEditingController();
+  final _mobileController = TextEditingController();
+  final _emailController = TextEditingController();
 
   // Organization Controllers
-  final _orgNameController = TextEditingController(
-    text: 'Samarpan Welfare Society',
-  );
-  final _orgTypeController = TextEditingController(text: 'Registered Society');
-  final _regNumController = TextEditingController(text: 'NGO-UP-8821');
-  final _yearController = TextEditingController(text: '2018');
-  final _orgPhoneController = TextEditingController(text: '+91 562 2891000');
-  final _orgEmailController = TextEditingController(
-    text: 'info@samarpan-ngo.org',
-  );
+  final _orgNameController = TextEditingController();
+  final _orgTypeController = TextEditingController();
+  final _regNumController = TextEditingController();
+  final _yearController = TextEditingController();
+  final _orgPhoneController = TextEditingController();
+  final _orgEmailController = TextEditingController();
 
   // Address Controllers
-  final _addressController = TextEditingController(
-    text: 'Plot 14, Sanjay Place',
-  );
-  final _stateController = TextEditingController(text: 'Uttar Pradesh');
-  final _districtController = TextEditingController(text: 'Agra');
-  final _cityController = TextEditingController(text: 'Agra');
-  final _pinController = TextEditingController(text: '282002');
+  final _addressController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _districtController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _pinController = TextEditingController();
 
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authStateProvider).user;
+    if (user != null && user.email.isNotEmpty) {
+      _emailController.text = user.email;
+    }
+  }
 
   @override
   void dispose() {
@@ -81,7 +81,7 @@ class _NgoRegistrationScreenState extends ConsumerState<NgoRegistrationScreen> {
     setState(() => _isSubmitting = true);
     try {
       final profile = NgoProfileModel(
-        id: 'ngo_8821',
+        id: 'ngo_${DateTime.now().millisecondsSinceEpoch}',
         fullName: _nameController.text.trim(),
         designation: _designationController.text.trim(),
         mobileNumber: _mobileController.text.trim(),

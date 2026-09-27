@@ -424,7 +424,27 @@ void main() {
     test(
       'MockNgoRepository getMyProfile and submitRegistration updates status',
       () async {
-        final repo = MockNgoRepository();
+        final repo = MockNgoRepository(
+          initialProfile: const NgoProfileModel(
+            id: 'test_ngo_1',
+            fullName: 'Test Representative',
+            designation: 'General Secretary',
+            mobileNumber: '+919999999999',
+            email: 'test@example.org',
+            ngoName: 'Test Welfare Society',
+            organizationType: 'Society',
+            registrationNumber: 'TEST-REG-101',
+            establishmentYear: 2020,
+            contactNumber: '+919999999999',
+            officialEmail: 'info@test.org',
+            address: '123 Test Road',
+            state: 'Uttar Pradesh',
+            district: 'Lucknow',
+            city: 'Lucknow',
+            pinCode: '226001',
+            status: NgoRegistrationStatus.incomplete,
+          ),
+        );
         final profile = await repo.getMyProfile();
 
         expect(profile, isNotNull);

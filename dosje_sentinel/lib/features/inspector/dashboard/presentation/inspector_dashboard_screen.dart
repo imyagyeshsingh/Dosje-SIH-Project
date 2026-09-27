@@ -90,98 +90,119 @@ class InspectorDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Performance KPIs
-            Row(
-              children: [
-                Expanded(
-                  child: CivicCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Assigned',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.outline,
-                          ),
+            FutureBuilder<List<InspectionModel>>(
+              future: inspectionRepo.getInspections(),
+              builder: (context, snapshot) {
+                final inspections = snapshot.data ?? [];
+                final assignedCount = inspections
+                    .where((i) =>
+                        i.status == 'ASSIGNED' ||
+                        i.status == 'IN_PROGRESS' ||
+                        i.status == 'SCHEDULED')
+                    .length;
+                final completedCount = inspections
+                    .where((i) => i.status == 'COMPLETED')
+                    .length;
+                final discrepanciesCount = inspections
+                    .where((i) =>
+                        i.result != null &&
+                        i.result!.toUpperCase().contains('DISCREPANCY'))
+                    .length;
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: CivicCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Assigned',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$assignedCount',
+                              style: AppTypography.headlineSm.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Active today',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.warning,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '3',
-                          style: AppTypography.headlineSm.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Active today',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.warning,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CivicCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Completed',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.outline,
-                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CivicCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Completed',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$completedCount',
+                              style: AppTypography.headlineSm.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'This month',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '28',
-                          style: AppTypography.headlineSm.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'This month',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.success,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CivicCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Discrepancies',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.outline,
-                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CivicCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Discrepancies',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$discrepanciesCount',
+                              style: AppTypography.headlineSm.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Action pending',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '4',
-                          style: AppTypography.headlineSm.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Action pending',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 24),
 

@@ -9,6 +9,7 @@ import '../../../../shared/widgets/civic_app_bar.dart';
 import '../../../../shared/widgets/civic_card.dart';
 import '../../../../shared/widgets/civic_button.dart';
 import '../../../../shared/widgets/status_chip.dart';
+import '../../../../shared/providers/core_providers.dart';
 
 class NgoOutcomeScreen extends ConsumerWidget {
   final String inspectionId;
@@ -17,6 +18,12 @@ class NgoOutcomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final facilityName = user?.organizationName != null
+        ? '${user!.organizationName} Facility'
+        : 'Registered Scheme Facility';
+
     return Scaffold(
       appBar: const CivicAppBar(
         title: 'Inspection Outcome',
@@ -40,7 +47,7 @@ class NgoOutcomeScreen extends ConsumerWidget {
                         variant: ChipVariant.info,
                       ),
                       Text(
-                        '23 Sep 2026',
+                        'Verified Audit',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.onSurfaceVariant,
@@ -68,14 +75,14 @@ class NgoOutcomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'District Rehabilitation & Support Centre',
+                    facilityName,
                     style: AppTypography.titleMd.copyWith(
                       color: AppColors.primaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
-                    'Facility Code: DSJ-AG-1042 • Agra Division',
+                    'Inspection Ref: $inspectionId',
                     style: AppTypography.bodySm,
                   ),
                   const Divider(height: 20),
@@ -84,7 +91,7 @@ class NgoOutcomeScreen extends ConsumerWidget {
                     children: [
                       Text('Official Audit Ref:', style: AppTypography.bodySm),
                       Text(
-                        'E-AUDIT-2026-77892-UP',
+                        'AUDIT-$inspectionId',
                         style: AppTypography.labelMd.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -97,7 +104,7 @@ class NgoOutcomeScreen extends ConsumerWidget {
                     children: [
                       Text('Lead Officer:', style: AppTypography.bodySm),
                       Text(
-                        'Shri V. K. Saxena (Dy. Director)',
+                        'Field Inspection Officer, PMU',
                         style: AppTypography.labelMd,
                       ),
                     ],

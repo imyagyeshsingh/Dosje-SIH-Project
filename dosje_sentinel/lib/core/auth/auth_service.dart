@@ -132,13 +132,13 @@ class DefaultAuthService implements AuthService {
                   ? 'Dr. Rudraksha Verma, IAS'
                   : (resolvedRole == UserRole.inspector
                       ? 'Rudraksha Singh'
-                      : 'Shri Rajesh Sharma')),
+                      : 'NGO Representative')),
           designation: userData['designation']?.toString() ??
               (resolvedRole == UserRole.official
                   ? 'Directorate Official, DoSJE'
                   : (resolvedRole == UserRole.inspector
                       ? 'Lead Inspection Officer, PMU'
-                      : 'Project Director')),
+                      : 'Project Representative')),
           role: resolvedRole,
           permissions: permissions.isNotEmpty
               ? permissions
@@ -279,16 +279,16 @@ class DefaultAuthService implements AuthService {
           email: data['email']?.toString() ?? userEmail,
           fullName: data['full_name']?.toString() ??
               (resolvedRole == UserRole.official
-                  ? 'Dr. Anand Verma, IAS'
+                  ? 'Directorate Official'
                   : (resolvedRole == UserRole.inspector
-                      ? 'Shri V. K. Saxena'
-                      : 'Shri Rajesh Sharma')),
+                      ? 'PMU Inspector'
+                      : 'NGO Representative')),
           designation: data['designation']?.toString() ??
               (resolvedRole == UserRole.official
                   ? 'Joint Secretary, DoSJE'
                   : (resolvedRole == UserRole.inspector
                       ? 'Lead Inspection Officer, PMU'
-                      : 'Project Director')),
+                      : 'Project Representative')),
           role: resolvedRole,
           permissions: permissions.isNotEmpty
               ? permissions
@@ -342,7 +342,7 @@ class DefaultAuthService implements AuthService {
         email: userEmail,
         fullName: normalized == 'itsmerudraksha1@gmail.com'
             ? 'Rudraksha Singh'
-            : 'Shri V. K. Saxena',
+            : 'PMU Inspector',
         designation: 'Lead Inspection Officer, PMU',
         role: UserRole.inspector,
         permissions: const [
@@ -353,7 +353,7 @@ class DefaultAuthService implements AuthService {
           Permission.uploadEvidence,
           Permission.reviewEvidence,
         ],
-        authorizedProjectIds: const ['DSJ-AG-1042', 'DSJ-VR-2089'],
+        authorizedProjectIds: const [],
         avatarUrl: null,
       );
 
@@ -374,10 +374,10 @@ class DefaultAuthService implements AuthService {
         email: userEmail,
         fullName: normalized == 'itsmerudraksha@gmail.com'
             ? 'Dr. Rudraksha Verma, IAS'
-            : 'Dr. Anand Verma, IAS',
+            : 'Directorate Official',
         designation: normalized == 'itsmerudraksha@gmail.com'
             ? 'Directorate Official, DoSJE'
-            : 'Joint Secretary, DoSJE',
+            : 'Directorate Officer, DoSJE',
         role: UserRole.official,
         permissions: const [
           Permission.viewAllProjects,
@@ -430,25 +430,21 @@ class DefaultAuthService implements AuthService {
         resolvedStatus == NgoRegistrationStatus.incomplete;
 
     final ngoUser = UserModel(
-      id: isNewOrIncomplete ? 'ngo_user_new' : 'ngo_user_101',
+      id: 'ngo_${normalized.split('@')[0]}',
       clerkUserId: effectiveClerkId,
       email: userEmail,
-      fullName: isNewOrIncomplete ? 'Shri Arvind Verma' : 'Shri Rajesh Sharma',
-      designation: 'Project Director',
+      fullName: 'NGO Representative',
+      designation: 'Project Representative',
       role: UserRole.ngoRepresentative,
       permissions: const [
         Permission.viewAssignedProjects,
         Permission.uploadEvidence,
         Permission.joinVideoInspection,
       ],
-      organizationId: isNewOrIncomplete ? 'org_new_99' : 'org_8821',
-      organizationName: isNewOrIncomplete
-          ? 'Gramin Vikas Sansthan'
-          : 'Samarpan Welfare Society',
-      authorizedProjectIds: isNewOrIncomplete
-          ? const []
-          : const ['DSJ-AG-1042', 'DSJ-VR-2089', 'DSJ-LK-3014'],
-      avatarUrl: 'assets/images/representative_avatar.png',
+      organizationId: null,
+      organizationName: null,
+      authorizedProjectIds: const [],
+      avatarUrl: null,
     );
 
     return AuthState(

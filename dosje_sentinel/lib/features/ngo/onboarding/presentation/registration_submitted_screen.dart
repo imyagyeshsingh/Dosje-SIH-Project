@@ -17,6 +17,11 @@ class RegistrationSubmittedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final orgName = user?.organizationName ?? 'Application Pending';
+    final regRef = user?.organizationId ?? 'REF-${DateTime.now().year}';
+
     return Scaffold(
       appBar: const CivicAppBar(
         title: 'Registration Submitted',
@@ -82,7 +87,7 @@ class RegistrationSubmittedScreen extends ConsumerWidget {
                       children: [
                         Text('Organization:', style: AppTypography.bodySm),
                         Text(
-                          'Samarpan Welfare Society',
+                          orgName,
                           style: AppTypography.labelMd.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -94,7 +99,7 @@ class RegistrationSubmittedScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Registration Ref:', style: AppTypography.bodySm),
-                        Text('NGO-UP-8821', style: AppTypography.labelMd),
+                        Text(regRef, style: AppTypography.labelMd),
                       ],
                     ),
                   ],

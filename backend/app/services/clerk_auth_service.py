@@ -120,8 +120,8 @@ def resolve_user_role_from_db_or_seed(
         designation = "Field Inspection Officer, PMU"
     else:
         role = "NGO_REPRESENTATIVE"
-        full_name = "Shri Rajesh Sharma"
-        designation = "Project Director"
+        full_name = "NGO Representative"
+        designation = "Project Representative"
 
     # Map role to client-side permissions
     if role == "OFFICIAL":
@@ -137,28 +137,15 @@ def resolve_user_role_from_db_or_seed(
         ngo_status = "approved"
         org_id = None
         org_name = None
-        authorized_projects = ["DSJ-AG-1042", "DSJ-VR-2089"]
+        authorized_projects = []
     else:
         role = "NGO_REPRESENTATIVE"
         permissions = NGO_PERMISSIONS
         user_id = f"ngo_{normalized_email.split('@')[0]}"
-        
-        # Check if email indicates incomplete/submitted
-        if any(k in normalized_email for k in ["new", "register", "incomplete"]):
-            ngo_status = "incomplete"
-            org_id = "org_new_99"
-            org_name = "Gramin Vikas Sansthan"
-            authorized_projects = []
-        elif "submitted" in normalized_email:
-            ngo_status = "submitted"
-            org_id = "org_8821"
-            org_name = "Samarpan Welfare Society"
-            authorized_projects = ["DSJ-AG-1042"]
-        else:
-            ngo_status = "approved"
-            org_id = "org_8821"
-            org_name = "Samarpan Welfare Society"
-            authorized_projects = ["DSJ-AG-1042", "DSJ-VR-2089", "DSJ-LK-3014"]
+        ngo_status = "incomplete"
+        org_id = None
+        org_name = None
+        authorized_projects = []
 
     effective_clerk_id = clerk_user_id or f"user_clerk_{normalized_email.replace('@', '_').replace('.', '_')}"
 
