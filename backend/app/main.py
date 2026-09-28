@@ -184,11 +184,18 @@ async def video_signaling_session(websocket: WebSocket, session_id: str) -> None
 
 
 @app.on_event("startup")
-def create_database_tables() -> None:
+def startup_init() -> None:
     try:
         Base.metadata.create_all(bind=engine)
+        from app.database import SessionLocal
+        from app.services.clerk_auth_service import ensure_seed_whitelist
+        from app.services.seed_service import ensure_seed_projects_and_inspectors
+
+        with SessionLocal() as db:
+            ensure_seed_whitelist(db)
+            ensure_seed_projects_and_inspectors(db)
     except SQLAlchemyError:
-        logger.exception("Failed to create database tables during startup")
+        logger.exception("Failed during database initialization on startup")
 
 
 @app.get("/health")
