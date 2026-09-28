@@ -1,4 +1,4 @@
-from risk_alert_engine import RiskAlertEngine
+from ai_ml.core.risk_alert_engine import RiskAlertEngine
 
 
 engine = RiskAlertEngine()

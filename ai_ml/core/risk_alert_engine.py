@@ -1,5 +1,5 @@
-from risk_engine import calculate_risk_score
-from ai_event_manager import AIEventManager
+from .risk_engine import calculate_risk_score
+from .ai_event_manager import AIEventManager
 
 
 class RiskAlertEngine:

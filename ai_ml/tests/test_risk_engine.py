@@ -1,4 +1,4 @@
-from risk_engine import calculate_risk_score
+from ai_ml.core.risk_engine import calculate_risk_score
 
 
 test_cases = [

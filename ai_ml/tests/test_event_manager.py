@@ -1,4 +1,4 @@
-from ai_event_manager import AIEventManager
+from ai_ml.core.ai_event_manager import AIEventManager
 
 
 manager = AIEventManager()

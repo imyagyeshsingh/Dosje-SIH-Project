@@ -3,6 +3,7 @@ import time
 import json
 from datetime import datetime, timezone
 from collections import defaultdict, deque
+from pathlib import Path
 from ultralytics import YOLO
 
 
@@ -10,7 +11,8 @@ from ultralytics import YOLO
 # CONFIGURATION
 # ============================================================
 
-MODEL_PATH = "yolo11n.pt"
+BASE_DIR = Path(__file__).resolve().parents[1]
+MODEL_PATH = BASE_DIR / "models" / "yolo11n.pt"
 
 # 0 = laptop webcam
 # Later this can be changed to a video file or CCTV URL.
@@ -42,7 +44,7 @@ HIGH_PEOPLE = 5
 # MODEL
 # ============================================================
 
-model = YOLO(MODEL_PATH)
+model = YOLO(str(MODEL_PATH))
 
 
 # ============================================================

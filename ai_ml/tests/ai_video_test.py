@@ -1,5 +1,7 @@
 import cv2
 from ultralytics import YOLO
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parents[1]
 
 
 def determine_activity(people_count):
@@ -13,7 +15,7 @@ def determine_activity(people_count):
         return "HIGH"
 
 
-model = YOLO("yolo11n.pt")
+model = YOLO(str(BASE_DIR / "models" / "yolo11n.pt"))
 
 cap = cv2.VideoCapture(0)
 

@@ -5,17 +5,20 @@ from collections import defaultdict, deque
 
 from ultralytics import YOLO
 
-from ai_client import send_detection
-from risk_alert_engine import RiskAlertEngine
+from .ai_client import send_detection
+from .risk_alert_engine import RiskAlertEngine
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-MODEL_PATH = "yolo11n-pose.pt"
+from pathlib import Path
 
-VIDEO_SOURCE = r"videos\istockphoto-2160472791-640_adpp_is.mp4"
+BASE_DIR = Path(__file__).resolve().parents[1]
+MODEL_PATH = BASE_DIR / "models" / "yolo11n-pose.pt"
+
+VIDEO_SOURCE = BASE_DIR / "videos" / "istockphoto-2160472791-640_adpp_is.mp4"
 
 CONFIDENCE_THRESHOLD = 0.35
 
@@ -64,7 +67,7 @@ model = YOLO(MODEL_PATH)
 
 print("Pose model loaded.")
 
-cap = cv2.VideoCapture(VIDEO_SOURCE)
+cap = cv2.VideoCapture(str(VIDEO_SOURCE))
 
 if not cap.isOpened():
     print("ERROR: Could not open video.")
@@ -758,3 +761,4 @@ cap.release()
 cv2.destroyAllWindows()
 
 print("\nAI processing finished.")
+
