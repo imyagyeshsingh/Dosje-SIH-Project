@@ -201,6 +201,12 @@ class DefaultAuthService implements AuthService {
     final cleanOtp = otp.trim();
 
     // 1. Attempt verification with FastAPI backend if reachable
+    // IMPORTANT: The backend has its OWN OTP system separate from Clerk.
+    // If the user got the OTP from Clerk email, the backend will reject it (400).
+    // So we must NOT rethrow backend 400s when Clerk state is available — fall
+    // through to Clerk verification instead. Only treat backend rejection as
+    // final when there is no Clerk session to fall back to.
+    bool backendRejected = false;
     try {
       final response = await apiClient.post(
         ApiEndpoints.verifyOtp,
@@ -216,11 +222,11 @@ class DefaultAuthService implements AuthService {
         return _buildAuthStateFromBackend(data, cleanEmail, status);
       }
     } on BadRequestException {
-      // Backend actively validated and rejected code as incorrect!
-      rethrow;
+      // Backend rejected the OTP — but this may be a Clerk OTP the backend
+      // doesn't know about. Record rejection and fall through to Clerk check.
+      backendRejected = true;
     } catch (_) {
-      // Backend unreachable over current network connection.
-      // Fall through to Direct Clerk Cloud Verification!
+      // Backend unreachable — fall through to Clerk Cloud Verification.
     }
 
     // 2. Direct Clerk Cloud Verification (Global cloud, works on every network)
@@ -274,7 +280,9 @@ class DefaultAuthService implements AuthService {
 
     // If neither Clerk nor backend could verify, the OTP is wrong
     throw BadRequestException(
-      'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
+      backendRejected
+          ? 'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.'
+          : 'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
     );
   }
 
