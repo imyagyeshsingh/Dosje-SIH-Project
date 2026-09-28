@@ -11,14 +11,10 @@ from app.schemas.auth import (
     WhitelistResponse,
     SendOtpRequest,
     SendOtpResponse,
-    VerifyOtpRequest,
-    VerifyOtpResponse,
 )
 from app.services.clerk_auth_service import (
     ensure_seed_whitelist,
     resolve_user_role_from_db_or_seed,
-    send_email_otp,
-    verify_email_otp,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & RBAC"])
@@ -27,56 +23,23 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & RBAC"])
 @router.post("/otp/send", response_model=SendOtpResponse)
 def request_otp(payload: SendOtpRequest):
     """
-    Generate and dispatch a 6-digit OTP to the specified email address.
+    Acknowledgement endpoint — OTP is handled entirely by Clerk on the client side.
+    The backend does NOT generate or store any OTP. This endpoint just confirms
+    the email is non-empty and returns success so the app can proceed.
     """
     if not payload.email or not payload.email.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Valid email address is required to send verification code.",
+            detail="Valid email address is required.",
         )
-    result = send_email_otp(payload.email)
-    return result
-
-
-@router.post("/otp/verify", response_model=VerifyOtpResponse)
-def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
-    """
-    Verify submitted 6-digit OTP code and return authenticated user profile & role.
-    """
-    import time
-
-    if not payload.email or not payload.email.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Email address is required for verification.",
-        )
-    if not payload.otp or not payload.otp.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Verification code is required.",
-        )
-
-    ensure_seed_whitelist(db)
-
-    try:
-        user_info = verify_email_otp(
-            email=payload.email,
-            otp=payload.otp,
-            db=db,
-            clerk_user_id=payload.clerk_user_id,
-        )
-        token = f"clerk_otp_session_{int(time.time() * 1000)}"
-        return VerifyOtpResponse(
-            success=True,
-            message="Email successfully verified.",
-            token=token,
-            user=user_info,
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+    return SendOtpResponse(
+        success=True,
+        message="Verification code will be sent to your email by Clerk.",
+        email=payload.email.strip().lower(),
+        expires_in=300,
+        dev_otp=None,
+        clerk_sent=True,
+    )
 
 
 @router.post("/resolve-role", response_model=ResolveRoleResponse)
@@ -86,8 +49,11 @@ def resolve_role(
 ):
     """
     Authoritative role resolution endpoint.
-    Given an authenticated user's email, checks the database whitelist
-    and returns whether the user has OFFICIAL, INSPECTOR, or NGO access.
+    Called AFTER Clerk has verified the OTP on the client.
+    Checks the email against the database whitelist and returns:
+      - OFFICIAL  → redirects to Official UI
+      - INSPECTOR → redirects to PMU/Inspector UI
+      - NGO_REPRESENTATIVE → redirects to NGO UI
     """
     if not payload.email or not payload.email.strip():
         raise HTTPException(
@@ -95,7 +61,6 @@ def resolve_role(
             detail="Email address is required for role resolution.",
         )
 
-    # Ensure initial seed users are present in DB
     ensure_seed_whitelist(db)
 
     result = resolve_user_role_from_db_or_seed(
@@ -157,7 +122,7 @@ def add_or_update_whitelist(
 
 @router.delete("/whitelist/{email}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_from_whitelist(email: str, db: Session = Depends(get_db)):
-    """Delete or deactivate an email from the whitelist."""
+    """Delete an email from the whitelist."""
     normalized = email.strip().lower()
     entry = db.query(UserRoleWhitelist).filter(
         UserRoleWhitelist.email.ilike(normalized)

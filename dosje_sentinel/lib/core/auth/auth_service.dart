@@ -43,9 +43,7 @@ class DefaultAuthService implements AuthService {
   final ApiClient apiClient;
   String? _clerkSiaId;
   String? _clerkSuaId;
-  String? _clerkClientToken;
   String? _clerkSessionEmail;
-  String? _cachedDevOtp;
 
   DefaultAuthService({required this.apiClient});
 
@@ -71,48 +69,42 @@ class DefaultAuthService implements AuthService {
   @override
   Future<String?> sendOtp(String email) async {
     final cleanEmail = email.trim();
-    _cachedDevOtp = null;
+    // Reset all session state
     _clerkSiaId = null;
     _clerkSuaId = null;
-    _clerkClientToken = null;
     _clerkSessionEmail = null;
 
-    // 1. Direct Native Clerk Cloud OTP Dispatch (Global cloud, works on every phone and connection)
-    // Clerk's frontend API uses x-publishable-key header (not Bearer token) for native flows.
-    // The client token is returned inside the response JSON body, not in the Authorization header.
+    // OTP is handled ENTIRELY by Clerk. Backend is NOT involved in OTP generation.
+    // Clerk sends a real 6-digit code to the user's email.
     try {
       final clerkDio = _createClerkDio();
 
-      // Helper to extract client token from Clerk response body
-      String? extractClerkClientToken(Response res) {
+      // Extract __client session cookie from Clerk response
+      String? extractToken(Response res) {
+        final cookie = res.headers.value('set-cookie') ?? '';
+        final m = RegExp(r'__client=([^;]+)').firstMatch(cookie);
+        if (m != null) return m.group(1);
         if (res.data is Map) {
-          final d = res.data as Map<String, dynamic>;
-          // Clerk returns client JWT as __client cookie in set-cookie header.
-          final cookieHeader = res.headers.value('set-cookie') ?? '';
-          final sessionMatch = RegExp(r'__client=([^;]+)').firstMatch(cookieHeader);
-          if (sessionMatch != null) return sessionMatch.group(1);
-          // Fallback: use the resource id as a flow tracker
-          final resp = d['response'] as Map<String, dynamic>? ?? {};
+          final resp = (res.data as Map<String, dynamic>)['response'] as Map<String, dynamic>? ?? {};
           return resp['id']?.toString();
         }
         return null;
       }
 
+      // Try sign-in flow first (existing Clerk user)
       final signInRes = await clerkDio.post(
         '/v1/client/sign_ins',
         data: 'identifier=${Uri.encodeComponent(cleanEmail)}',
       );
 
       if (signInRes.statusCode == 200 && signInRes.data is Map) {
-        final data = signInRes.data as Map<String, dynamic>;
-        final resp = data['response'] as Map<String, dynamic>? ?? {};
+        final resp = (signInRes.data as Map<String, dynamic>)['response'] as Map<String, dynamic>? ?? {};
         final siaId = resp['id']?.toString();
         final factors = (resp['supported_first_factors'] as List<dynamic>? ?? []);
         final emailFactor = factors.firstWhere(
           (f) => f is Map && f['strategy'] == 'email_code',
           orElse: () => null,
         );
-        final clientToken = extractClerkClientToken(signInRes) ?? siaId;
 
         if (siaId != null && emailFactor != null) {
           final emailAddressId = (emailFactor as Map)['email_address_id']?.toString() ?? '';
@@ -126,26 +118,20 @@ class DefaultAuthService implements AuthService {
               },
             ),
           );
-
           if (prepRes.statusCode == 200) {
             _clerkSiaId = siaId;
-            _clerkClientToken = clientToken;
             _clerkSessionEmail = cleanEmail;
           }
         }
       } else if (signInRes.statusCode == 422) {
-        // User not yet registered in Clerk -> initiate sign_up to send email verification
+        // New user — initiate sign-up to provision Clerk account and send OTP
         final signUpRes = await clerkDio.post(
           '/v1/client/sign_ups',
           data: 'email_address=${Uri.encodeComponent(cleanEmail)}',
         );
-
         if (signUpRes.statusCode == 200 && signUpRes.data is Map) {
-          final data = signUpRes.data as Map<String, dynamic>;
-          final resp = data['response'] as Map<String, dynamic>? ?? {};
+          final resp = (signUpRes.data as Map<String, dynamic>)['response'] as Map<String, dynamic>? ?? {};
           final suaId = resp['id']?.toString();
-          final clientToken = extractClerkClientToken(signUpRes) ?? suaId;
-
           if (suaId != null) {
             final prepRes = await clerkDio.post(
               '/v1/client/sign_ups/$suaId/prepare_verification',
@@ -157,37 +143,19 @@ class DefaultAuthService implements AuthService {
                 },
               ),
             );
-
             if (prepRes.statusCode == 200) {
               _clerkSuaId = suaId;
-              _clerkClientToken = clientToken;
               _clerkSessionEmail = cleanEmail;
             }
           }
         }
       }
-    } catch (e) {
-      // Clerk cloud unreachable — fall through to backend
-    }
-
-    // 2. Also send to FastAPI backend if reachable (fast 3-second timeout)
-    try {
-      final response = await apiClient.post(
-        ApiEndpoints.sendOtp,
-        data: {'email': cleanEmail},
-        options: Options(
-          sendTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 4),
-        ),
-      );
-      if (response.statusCode == 200 && response.data is Map) {
-        _cachedDevOtp = response.data['dev_otp']?.toString();
-      }
     } catch (_) {
-      _cachedDevOtp ??= '123456';
+      // Clerk unreachable — user will see error when verifying
     }
 
-    return _cachedDevOtp;
+    // Return null — no dev OTP. Only the real Clerk email OTP is valid.
+    return null;
   }
 
   @override
@@ -200,36 +168,8 @@ class DefaultAuthService implements AuthService {
     final cleanEmail = email.trim();
     final cleanOtp = otp.trim();
 
-    // 1. Attempt verification with FastAPI backend if reachable
-    // IMPORTANT: The backend has its OWN OTP system separate from Clerk.
-    // If the user got the OTP from Clerk email, the backend will reject it (400).
-    // So we must NOT rethrow backend 400s when Clerk state is available — fall
-    // through to Clerk verification instead. Only treat backend rejection as
-    // final when there is no Clerk session to fall back to.
-    bool backendRejected = false;
-    try {
-      final response = await apiClient.post(
-        ApiEndpoints.verifyOtp,
-        data: {'email': cleanEmail, 'otp': cleanOtp},
-        options: Options(
-          sendTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 4),
-        ),
-      );
-
-      if (response.statusCode == 200 && response.data is Map) {
-        final data = response.data as Map<String, dynamic>;
-        return _buildAuthStateFromBackend(data, cleanEmail, status);
-      }
-    } on BadRequestException {
-      // Backend rejected the OTP — but this may be a Clerk OTP the backend
-      // doesn't know about. Record rejection and fall through to Clerk check.
-      backendRejected = true;
-    } catch (_) {
-      // Backend unreachable — fall through to Clerk Cloud Verification.
-    }
-
-    // 2. Direct Clerk Cloud Verification (Global cloud, works on every network)
+    // Step 1: Verify OTP with Clerk only.
+    // The backend no longer participates in OTP at all.
     if ((_clerkSiaId != null || _clerkSuaId != null) &&
         _clerkSessionEmail?.toLowerCase() == cleanEmail.toLowerCase()) {
       final clerkDio = _createClerkDio();
@@ -247,42 +187,57 @@ class DefaultAuthService implements AuthService {
         );
       }
 
+      if (attemptRes.statusCode == 400 || attemptRes.statusCode == 422) {
+        // Clerk explicitly rejected the code — it is wrong
+        throw BadRequestException(
+          'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
+        );
+      }
+
       if (attemptRes.statusCode == 200) {
         final respData =
             (attemptRes.data is Map ? (attemptRes.data['response'] as Map<String, dynamic>?) : null) ?? {};
         final clerkSessionId = respData['created_session_id']?.toString() ??
-            'clerk_session_${DateTime.now().millisecondsSinceEpoch}';
-        final clerkUserId = respData['created_user_id']?.toString() ??
-            respData['id']?.toString();
+            'clerk_session_\${DateTime.now().millisecondsSinceEpoch}';
+        final clerkUserId = respData['created_user_id']?.toString() ?? respData['id']?.toString();
 
+        // Step 2: OTP is correct. Ask backend to resolve the role for this email.
+        // Backend checks whitelist: Official → Official UI, Inspector → PMU UI, else → NGO UI.
+        try {
+          final roleRes = await apiClient.post(
+            ApiEndpoints.resolveRole,
+            data: {'email': cleanEmail, 'clerk_user_id': clerkUserId},
+            options: Options(
+              sendTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 6),
+            ),
+          );
+          if (roleRes.statusCode == 200 && roleRes.data is Map) {
+            return _buildAuthStateFromBackend(
+              roleRes.data as Map<String, dynamic>,
+              cleanEmail,
+              status,
+              overrideToken: clerkSessionId,
+              overrideClerkUserId: clerkUserId,
+            );
+          }
+        } catch (_) {
+          // Backend unreachable — fall back to local role resolution by email
+        }
+
+        // Fallback: resolve role locally from known email whitelist
         return _buildAuthoritativeClerkAuthState(
           cleanEmail: cleanEmail,
           clerkSessionId: clerkSessionId,
           clerkUserId: clerkUserId,
           status: status,
         );
-      } else if (attemptRes.statusCode == 400 || attemptRes.statusCode == 422) {
-        throw BadRequestException(
-          'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
-        );
       }
     }
 
-    // 3. Dev-only backend OTP bypass (only when backend explicitly returned a dev_otp)
-    if (_cachedDevOtp != null && cleanOtp == _cachedDevOtp) {
-      return _buildAuthoritativeClerkAuthState(
-        cleanEmail: cleanEmail,
-        clerkSessionId: 'clerk_session_${DateTime.now().millisecondsSinceEpoch}',
-        clerkUserId: 'user_clerk_${cleanEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
-        status: status,
-      );
-    }
-
-    // If neither Clerk nor backend could verify, the OTP is wrong
+    // No active Clerk session found (sendOtp was not called or failed)
     throw BadRequestException(
-      backendRejected
-          ? 'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.'
-          : 'Entered OTP is incorrect. Please enter the correct OTP or resend OTP.',
+      'Session expired. Please go back and request a new verification code.',
     );
   }
 
@@ -353,11 +308,20 @@ class DefaultAuthService implements AuthService {
   AuthState _buildAuthStateFromBackend(
     Map<String, dynamic> data,
     String cleanEmail,
-    NgoRegistrationStatus? status,
-  ) {
-    final token = data['token']?.toString() ??
+    NgoRegistrationStatus? status, {
+    String? overrideToken,
+    String? overrideClerkUserId,
+  }) {
+    // /resolve-role returns a flat structure; /otp/verify (old) wrapped in 'user'
+    final Map<String, dynamic> userData;
+    if (data.containsKey('user') && data['user'] is Map) {
+      userData = data['user'] as Map<String, dynamic>;
+    } else {
+      userData = data; // flat resolve-role response
+    }
+    final token = overrideToken ??
+        data['token']?.toString() ??
         'clerk_session_${DateTime.now().millisecondsSinceEpoch}';
-    final userData = data['user'] as Map<String, dynamic>? ?? {};
 
     apiClient.setAuthToken(token);
     apiClient.setUserEmail(cleanEmail);
