@@ -44,6 +44,7 @@ class DefaultAuthService implements AuthService {
   String? _clerkSiaId;
   String? _clerkSuaId;
   String? _clerkSessionEmail;
+  String? _clerkDevToken; // dev_browser JWT — must be reused across sendOtp→verifyOtp
 
   DefaultAuthService({required this.apiClient});
 
@@ -86,6 +87,7 @@ class DefaultAuthService implements AuthService {
     _clerkSiaId = null;
     _clerkSuaId = null;
     _clerkSessionEmail = null;
+    _clerkDevToken = null;
 
     // OTP is handled ENTIRELY by Clerk. Backend is NOT involved in OTP generation.
     // Clerk sends a real 6-digit code to the user's email.
@@ -93,11 +95,13 @@ class DefaultAuthService implements AuthService {
       final clerkDio = _createClerkDio();
 
       // Step 0: Get dev-browser token (required for dev Clerk instances).
-      // In production this is a no-op. Without it Clerk returns 401.
-      final devToken = await _fetchClerkDevToken(clerkDio);
+      // IMPORTANT: Store it — verifyOtp MUST reuse the SAME token.
+      // A new dev_browser call creates a new session; sign-in IDs are
+      // bound to the session they were created in.
+      _clerkDevToken = await _fetchClerkDevToken(clerkDio);
       // Append dev token to every URL that needs it
       String clerkUrl(String path) =>
-          devToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(devToken)}' : path;
+          _clerkDevToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(_clerkDevToken!)}' : path;
 
       // Step 1: Try sign-in flow (existing Clerk user)
       final signInRes = await clerkDio.post(
@@ -171,10 +175,11 @@ class DefaultAuthService implements AuthService {
         _clerkSessionEmail?.toLowerCase() == cleanEmail.toLowerCase()) {
       final clerkDio = _createClerkDio();
 
-      // Get dev-browser token (same requirement as sendOtp)
-      final devToken = await _fetchClerkDevToken(clerkDio);
+      // Reuse the SAME dev token from sendOtp — do NOT fetch a new one.
+      // Each /v1/dev_browser call creates a new browser session and the
+      // sign-in ID is bound to the session it was created in.
       String clerkUrl(String path) =>
-          devToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(devToken)}' : path;
+          _clerkDevToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(_clerkDevToken!)}' : path;
 
       Response attemptRes;
 
