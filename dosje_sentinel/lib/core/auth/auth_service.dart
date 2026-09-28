@@ -66,6 +66,19 @@ class DefaultAuthService implements AuthService {
     );
   }
 
+  /// Clerk development instances require a dev-browser JWT on every frontend API
+  /// call. Without it all requests return 401 "dev_browser_unauthenticated".
+  /// Production instances skip this step automatically (dev_browser returns quickly).
+  Future<String?> _fetchClerkDevToken(Dio clerkDio) async {
+    try {
+      final res = await clerkDio.post('/v1/dev_browser');
+      if (res.statusCode == 200 && res.data is Map) {
+        return (res.data as Map<String, dynamic>)['token']?.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   Future<String?> sendOtp(String email) async {
     final cleanEmail = email.trim();
@@ -79,21 +92,16 @@ class DefaultAuthService implements AuthService {
     try {
       final clerkDio = _createClerkDio();
 
-      // Extract __client session cookie from Clerk response
-      String? extractToken(Response res) {
-        final cookie = res.headers.value('set-cookie') ?? '';
-        final m = RegExp(r'__client=([^;]+)').firstMatch(cookie);
-        if (m != null) return m.group(1);
-        if (res.data is Map) {
-          final resp = (res.data as Map<String, dynamic>)['response'] as Map<String, dynamic>? ?? {};
-          return resp['id']?.toString();
-        }
-        return null;
-      }
+      // Step 0: Get dev-browser token (required for dev Clerk instances).
+      // In production this is a no-op. Without it Clerk returns 401.
+      final devToken = await _fetchClerkDevToken(clerkDio);
+      // Append dev token to every URL that needs it
+      String clerkUrl(String path) =>
+          devToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(devToken)}' : path;
 
-      // Try sign-in flow first (existing Clerk user)
+      // Step 1: Try sign-in flow (existing Clerk user)
       final signInRes = await clerkDio.post(
-        '/v1/client/sign_ins',
+        clerkUrl('/v1/client/sign_ins'),
         data: 'identifier=${Uri.encodeComponent(cleanEmail)}',
       );
 
@@ -108,15 +116,10 @@ class DefaultAuthService implements AuthService {
 
         if (siaId != null && emailFactor != null) {
           final emailAddressId = (emailFactor as Map)['email_address_id']?.toString() ?? '';
+          // Step 2: Trigger Clerk to send OTP email
           final prepRes = await clerkDio.post(
-            '/v1/client/sign_ins/$siaId/prepare_first_factor',
+            clerkUrl('/v1/client/sign_ins/$siaId/prepare_first_factor'),
             data: 'strategy=email_code&email_address_id=${Uri.encodeComponent(emailAddressId)}',
-            options: Options(
-              headers: {
-                if (signInRes.headers.value('set-cookie') != null)
-                  'Cookie': signInRes.headers.value('set-cookie')!,
-              },
-            ),
           );
           if (prepRes.statusCode == 200) {
             _clerkSiaId = siaId;
@@ -124,9 +127,9 @@ class DefaultAuthService implements AuthService {
           }
         }
       } else if (signInRes.statusCode == 422) {
-        // New user — initiate sign-up to provision Clerk account and send OTP
+        // New user — provision Clerk account and send OTP via sign-up flow
         final signUpRes = await clerkDio.post(
-          '/v1/client/sign_ups',
+          clerkUrl('/v1/client/sign_ups'),
           data: 'email_address=${Uri.encodeComponent(cleanEmail)}',
         );
         if (signUpRes.statusCode == 200 && signUpRes.data is Map) {
@@ -134,14 +137,8 @@ class DefaultAuthService implements AuthService {
           final suaId = resp['id']?.toString();
           if (suaId != null) {
             final prepRes = await clerkDio.post(
-              '/v1/client/sign_ups/$suaId/prepare_verification',
+              clerkUrl('/v1/client/sign_ups/$suaId/prepare_verification'),
               data: 'strategy=email_code',
-              options: Options(
-                headers: {
-                  if (signUpRes.headers.value('set-cookie') != null)
-                    'Cookie': signUpRes.headers.value('set-cookie')!,
-                },
-              ),
             );
             if (prepRes.statusCode == 200) {
               _clerkSuaId = suaId;
@@ -173,16 +170,22 @@ class DefaultAuthService implements AuthService {
     if ((_clerkSiaId != null || _clerkSuaId != null) &&
         _clerkSessionEmail?.toLowerCase() == cleanEmail.toLowerCase()) {
       final clerkDio = _createClerkDio();
+
+      // Get dev-browser token (same requirement as sendOtp)
+      final devToken = await _fetchClerkDevToken(clerkDio);
+      String clerkUrl(String path) =>
+          devToken != null ? '$path?__clerk_db_jwt=${Uri.encodeComponent(devToken)}' : path;
+
       Response attemptRes;
 
       if (_clerkSiaId != null) {
         attemptRes = await clerkDio.post(
-          '/v1/client/sign_ins/$_clerkSiaId/attempt_first_factor',
+          clerkUrl('/v1/client/sign_ins/$_clerkSiaId/attempt_first_factor'),
           data: 'strategy=email_code&code=${Uri.encodeComponent(cleanOtp)}',
         );
       } else {
         attemptRes = await clerkDio.post(
-          '/v1/client/sign_ups/$_clerkSuaId/attempt_verification',
+          clerkUrl('/v1/client/sign_ups/$_clerkSuaId/attempt_verification'),
           data: 'strategy=email_code&code=${Uri.encodeComponent(cleanOtp)}',
         );
       }
@@ -257,8 +260,7 @@ class DefaultAuthService implements AuthService {
     NgoRegistrationStatus resolvedStatus;
 
     if (normEmail == 'rathorekhushboo567@gmail.com' ||
-        normEmail == 'itsmerudraksha@gmail.com' ||
-        normEmail == 'official@dosje.gov.in') {
+        normEmail == 'itsmerudraksha@gmail.com') {
       resolvedRole = UserRole.official;
       fullName = (normEmail == 'rathorekhushboo567@gmail.com')
           ? 'Khushboo Rathore'
@@ -266,8 +268,7 @@ class DefaultAuthService implements AuthService {
       designation = 'Directorate Official, DoSJE';
       resolvedStatus = NgoRegistrationStatus.approved;
     } else if (normEmail == 'the.khushboo567@gmail.com' ||
-        normEmail == 'itsmerudraksha1@gmail.com' ||
-        normEmail == 'inspector@dosje.gov.in') {
+        normEmail == 'itsmerudraksha1@gmail.com' ) {
       resolvedRole = UserRole.inspector;
       fullName = (normEmail == 'the.khushboo567@gmail.com')
           ? 'Khushboo Rathore'
