@@ -56,42 +56,115 @@ graph TD
 
 ---
 
-## 🤖 Khushboo's AI/ML & Computer Vision Pipeline
+## 🤖 AI/ML & Computer Vision Pipeline
 
-Khushboo owns the **AI Inference, Computer Vision, and Real-Time Event Extraction Engine**. The platform was strictly built with a clean architectural boundary so that any AI model architecture selected by Khushboo streams directly into the backend without tight coupling:
+The AI/ML module is responsible for converting video input into useful, explainable events and risk information for the DoSJE Sentinel platform.
 
-1. **Computer Vision & Video Ingestion**:
-   - RTSP/HLS stream ingestion via OpenCV or preferred video pipeline.
-   - Video file chunking and frame sampling.
-2. **AI Inference & People Detection**:
-   - Real-time person detection, head count, and occupancy tracking (using models selected by Khushboo).
-   - Detection bounding boxes and video overlays.
-3. **Activity Classification**:
-   - `NORMAL`: Standard operational facility activity.
-   - `SUSPICIOUS_BEHAVIOR`: Unscheduled movement, perimeter breach, tampering.
-   - `NO_ACTIVITY`: Empty facility during mandatory shift hours.
-   - `OVERCROWDING`: Excess occupancy violating sanctioned capacity.
+### Pipeline
 
-### Ingestion Contract for Khushboo:
-```http
-POST /ai/detections
-Content-Type: application/json
+**Video Input → YOLO Detection → ByteTrack Tracking → Activity Analysis → Event Extraction → Risk Assessment → Backend Integration**
 
-{
-  "project_id": 1,
-  "camera_id": 101,
-  "people_detected": 35,
-  "confidence": 0.94,
-  "activity": "NORMAL",
-  "detection_time": "2026-09-26T12:00:00Z"
-}
-```
-*Downstream Automation:*
-- Ingestion updates the project's **Attendance Summary** (`detected_workers` vs `expected_workers`).
-- Recalculates the **Composite Risk Score** (attendance + camera uptime + AI signals).
-- Anomaly detections (`SUSPICIOUS_BEHAVIOR` or `NO_ACTIVITY`) trigger **Alerts** and push **Notifications** to Directorate Officials.
+### 1. Video Processing
+- Uses OpenCV for video input and frame processing.
+- Processes video frames continuously for AI inference.
+- Supports frame-level analysis required for real-time monitoring.
 
----
+### 2. Person Detection & Tracking
+- Uses **YOLO** models for person detection.
+- Uses **ByteTrack** for maintaining person identities across frames.
+- Tracks the number and movement of people detected in the scene.
+- Detection confidence is retained for further risk analysis.
+
+### 3. Pose & Activity Analysis
+- Uses the YOLO pose model to analyse human keypoints.
+- Movement between frames is used to identify activity levels.
+- The system can identify states such as:
+  - Normal activity
+  - Low activity
+  - High activity
+  - No activity
+
+### 4. Real-Time Event Extraction
+The AI pipeline converts raw detections into structured events instead of sending only model predictions.
+
+Events include:
+- `STATE_UPDATE`
+- `NORMAL_ACTIVITY`
+- `LOW_ACTIVITY`
+- `HIGH_ACTIVITY`
+- `NO_ACTIVITY`
+- `ALERT_STARTED`
+- `ALERT_CONTINUING`
+- `ALERT_CLEARED`
+
+The event manager maintains the event history and current alert state.
+
+### 5. Explainable Risk Assessment
+The risk engine produces a **0–100 risk score** along with the reasons behind the score.
+
+Risk factors include:
+- Prolonged inactivity
+- No people detected
+- Low or high activity
+- High number of people
+- Multiple people detected
+- Low detection confidence
+
+Risk levels are classified as:
+- `LOW`
+- `MEDIUM`
+- `HIGH`
+- `CRITICAL`
+
+This keeps the AI output explainable instead of treating the model as a black box.
+
+### 6. Alert Generation
+The risk and event engines work together to determine whether an observation should become an alert.
+
+The generated AI result can contain:
+- Number of people detected
+- Risk score
+- Risk level
+- Risk reasons
+- Event type
+- Alert severity
+- Alert reason
+- Timestamp
+
+### 7. Backend Integration
+AI results are prepared as structured JSON and sent to the backend through the AI detection integration.
+
+This creates a clean separation between:
+- **AI/ML:** detection, tracking, activity analysis, events and risk
+- **Backend:** data processing, storage and application services
+- **Flutter:** visualization and user interaction
+
+### AI/ML Components
+
+```text
+ai_ml/
+├── core/
+│   ├── ai_client.py
+│   ├── ai_engine.py
+│   ├── ai_engine_integrated.py
+│   ├── ai_event_manager.py
+│   ├── risk_alert_engine.py
+│   └── risk_engine.py
+│
+├── models/
+│   ├── yolo11n.pt
+│   └── yolo11n-pose.pt
+│
+├── tests/
+│   ├── ai_test.py
+│   ├── ai_tracking_test.py
+│   ├── ai_video_test.py
+│   ├── test_event_manager.py
+│   ├── test_risk_alert_engine.py
+│   └── test_risk_engine.py
+│
+└── videos/
+    └── sample monitoring video
 
 ## 🧩 The 16 Operational Modules
 
