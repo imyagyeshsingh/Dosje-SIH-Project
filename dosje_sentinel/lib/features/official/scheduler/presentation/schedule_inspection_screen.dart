@@ -35,7 +35,10 @@ class _ScheduleInspectionScreenState
       final projectRepo = ref.read(projectRepositoryProvider);
       final projects = await projectRepo.getProjects(limit: 50);
 
-      final targetProjectId = _selectedProjectId ?? (projects.isNotEmpty ? projects.first.id : '1');
+      final targetProjectId = _selectedProjectId ?? (projects.isNotEmpty ? projects.first.id : null);
+      if (targetProjectId == null) {
+        throw Exception('No registered projects found in database to schedule inspection.');
+      }
       final matchingProject = projects.where((p) => p.id == targetProjectId).firstOrNull;
       final selectedProjectName = matchingProject?.name ?? (projects.isNotEmpty ? projects.first.name : 'Selected Facility');
 
@@ -51,7 +54,7 @@ class _ScheduleInspectionScreenState
         );
 
         final assignedInspection = await repo.assignRandomInspector(inspection.id);
-        final officerDisplay = assignedInspection.officerName ?? assignedInspection.officerId ?? 'Assigned Officer';
+        final officerDisplay = assignedInspection.officerName ?? assignedInspection.officerId ?? 'Assigned PMU Officer';
 
         if (mounted) {
           setState(() => _isSubmitting = false);
@@ -62,7 +65,7 @@ class _ScheduleInspectionScreenState
         final inspectors = await ref.read(inspectorsListProvider.future);
         final matchingInspector = inspectors.where((i) => i.inspectorId == _selectedInspectorId).firstOrNull;
         final assignedName = matchingInspector?.inspectorName ?? (inspectors.isNotEmpty ? inspectors.first.inspectorName : 'Lead Inspector');
-        final assignedId = matchingInspector?.inspectorId ?? (inspectors.isNotEmpty ? inspectors.first.inspectorId : 'INS-001');
+        final assignedId = matchingInspector?.inspectorId ?? (inspectors.isNotEmpty ? inspectors.first.inspectorId : _selectedInspectorId);
 
         final inspection = await repo.createInspection(
           projectId: targetProjectId,
@@ -135,11 +138,32 @@ class _ScheduleInspectionScreenState
     final projectsAsync = ref.watch(allRegisteredProjectsProvider);
     final inspectorsAsync = ref.watch(inspectorsListProvider);
 
+    final projectList = projectsAsync.value ?? [];
+    final selectedProjectId = projectList.any((p) => p.id == _selectedProjectId)
+        ? _selectedProjectId
+        : (projectList.isNotEmpty ? projectList.first.id : null);
+
+    final inspectorsList = inspectorsAsync.value ?? [];
+    final selectedInspectorId = (_selectedInspectorId == 'RANDOM_PMU' ||
+            inspectorsList.any((i) => i.inspectorId == _selectedInspectorId))
+        ? _selectedInspectorId
+        : 'RANDOM_PMU';
+
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
-      appBar: const CivicAppBar(
+      appBar: CivicAppBar(
         title: 'Schedule Inspection',
         showProfileAvatar: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.primaryContainer),
+            tooltip: 'Reload database data',
+            onPressed: () {
+              ref.invalidate(allRegisteredProjectsProvider);
+              ref.invalidate(inspectorsListProvider);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.screenMargin),
@@ -150,16 +174,36 @@ class _ScheduleInspectionScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'TARGET FACILITY / PROJECT',
-                    style: AppTypography.labelSm.copyWith(
-                      color: AppColors.outline,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'TARGET FACILITY / PROJECT',
+                        style: AppTypography.labelSm.copyWith(
+                          color: AppColors.outline,
+                        ),
+                      ),
+                      if (projectsAsync.isLoading)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Text(
+                          '${projectList.length} live in database',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    key: ValueKey(_selectedProjectId),
-                    initialValue: _selectedProjectId ?? projectsAsync.value?.firstOrNull?.id,
+                    key: ValueKey('project_$selectedProjectId'),
+                    initialValue: selectedProjectId,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.surfaceContainerLow,
@@ -172,23 +216,21 @@ class _ScheduleInspectionScreenState
                         ),
                       ),
                     ),
-                    items: [
-                      if (projectsAsync.value == null || projectsAsync.value!.isEmpty)
-                        const DropdownMenuItem(
-                          value: '1',
-                          child: Text('Loading registered projects...'),
-                        )
-                      else
-                        ...?projectsAsync.value?.map(
-                          (p) => DropdownMenuItem(
-                            value: p.id,
-                            child: Text(
-                              '${p.name} (${p.code})',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                    hint: Text(
+                      projectsAsync.isLoading
+                          ? 'Fetching projects from database...'
+                          : 'Select target facility / project',
+                      style: AppTypography.bodySm,
+                    ),
+                    items: projectList.map(
+                      (p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(
+                          '${p.name} (${p.code})',
+                          overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                      ),
+                    ).toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedProjectId = val);
                     },
@@ -203,7 +245,7 @@ class _ScheduleInspectionScreenState
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    key: ValueKey(_inspectionType),
+                    key: ValueKey('type_$_inspectionType'),
                     initialValue: _inspectionType,
                     decoration: InputDecoration(
                       filled: true,
@@ -237,16 +279,36 @@ class _ScheduleInspectionScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  Text(
-                    'ASSIGNED PMU INSPECTION SQUAD',
-                    style: AppTypography.labelSm.copyWith(
-                      color: AppColors.outline,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'ASSIGNED PMU INSPECTION SQUAD',
+                        style: AppTypography.labelSm.copyWith(
+                          color: AppColors.outline,
+                        ),
+                      ),
+                      if (inspectorsAsync.isLoading)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Text(
+                          '${inspectorsList.length} squads available',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.primaryContainer,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    key: ValueKey(_selectedInspectorId),
-                    initialValue: _selectedInspectorId,
+                    key: ValueKey('insp_$selectedInspectorId'),
+                    initialValue: selectedInspectorId,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.surfaceContainerLow,
@@ -265,15 +327,35 @@ class _ScheduleInspectionScreenState
                         child: Row(
                           children: [
                             Icon(Icons.shuffle, size: 16, color: AppColors.secondary),
-                            SizedBox(width: 6),
-                            Text('Automated Random Inspector (PMU Selection)'),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Automated Random Inspector (PMU Selection)',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      ...?inspectorsAsync.value?.map(
+                      ...inspectorsList.map(
                         (insp) => DropdownMenuItem(
                           value: insp.inspectorId,
-                          child: Text('${insp.inspectorName} (${insp.inspectorId})'),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.shield_outlined,
+                                size: 16,
+                                color: AppColors.primaryContainer,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${insp.inspectorName} (${insp.inspectorId})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
